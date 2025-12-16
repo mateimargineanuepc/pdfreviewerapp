@@ -574,11 +574,11 @@ function PdfViewerPage() {
      */
     const onPageLoadSuccess = async (page) => {
         try {
-            // Wait 5000ms after page load before extracting rows
+            // Wait 2000ms after page load before extracting rows
             // This ensures the PDF is fully rendered in the DOM
             setTimeout(() => {
                 extractRowsFromTextLayer();
-            }, 5000);
+            }, 2000);
         } catch (error) {
             console.error('Error in onPageLoadSuccess:', error);
             setTextLines([]);
@@ -591,10 +591,10 @@ function PdfViewerPage() {
     useEffect(() => {
         setTextLines([]);
         setExtractingRows(true);
-        // Re-extract rows after page change with 5000ms delay
+        // Re-extract rows after page change with 2000ms delay
         const timer = setTimeout(() => {
             extractRowsFromTextLayer();
-        }, 5000);
+        }, 2000);
         return () => clearTimeout(timer);
     }, [pageNumber, extractRowsFromTextLayer]);
 
