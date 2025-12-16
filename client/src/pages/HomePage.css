@@ -1,6 +1,6 @@
 .home-page {
     min-height: calc(100vh - 60px);
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--bg-primary);
     padding: 40px 20px;
     display: flex;
     justify-content: center;
@@ -8,10 +8,11 @@
 }
 
 .home-container {
-    background: white;
+    background: var(--bg-card);
     padding: 50px 40px;
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 32px var(--shadow-dark), 0 0 1px var(--border-gold);
+    border: 1px solid var(--border-gold);
     width: 100%;
     max-width: 800px;
     min-width: 60%;
@@ -20,28 +21,29 @@
 
 .home-container h1 {
     margin: 0 0 35px 0;
-    color: #2c3e50;
+    color: var(--gold-primary);
     font-size: 32px;
     font-weight: 700;
     letter-spacing: -0.5px;
+    text-shadow: 0 0 10px var(--shadow-gold);
 }
 
 .user-info {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: var(--bg-secondary);
     padding: 25px;
     border-radius: 12px;
     margin-bottom: 30px;
-    border: 1px solid #e1e8ed;
+    border: 1px solid var(--border-color);
 }
 
 .user-info p {
     margin: 12px 0;
-    color: #495057;
+    color: var(--silver-primary);
     font-size: 16px;
 }
 
 .user-info strong {
-    color: #2c3e50;
+    color: var(--gold-primary);
     font-weight: 600;
 }
 
@@ -55,9 +57,9 @@
 
 .viewer-button {
     padding: 14px 32px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
+    background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+    color: var(--bg-primary);
+    border: 1px solid var(--border-gold);
     border-radius: 10px;
     font-size: 16px;
     font-weight: 600;
@@ -65,12 +67,13 @@
     transition: all 0.3s ease;
     text-decoration: none;
     display: inline-block;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 12px var(--shadow-gold);
 }
 
 .viewer-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px var(--shadow-gold);
+    background: linear-gradient(135deg, var(--gold-accent) 0%, var(--gold-primary) 100%);
 }
 
 .viewer-button:active {
@@ -79,21 +82,23 @@
 
 .logout-button {
     padding: 14px 32px;
-    background: #dc3545;
-    color: white;
-    border: none;
+    background: transparent;
+    color: var(--silver-primary);
+    border: 1px solid var(--border-silver);
     border-radius: 10px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    box-shadow: 0 4px 12px var(--shadow-silver);
 }
 
 .logout-button:hover {
-    background: #c82333;
+    background: var(--silver-primary);
+    color: var(--bg-primary);
+    border-color: var(--silver-secondary);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 6px 20px var(--shadow-silver);
 }
 
 .logout-button:active {
@@ -101,7 +106,7 @@
 }
 
 .info {
-    color: #6c757d;
+    color: var(--silver-accent);
     font-style: italic;
     font-size: 14px;
     margin-top: 20px;

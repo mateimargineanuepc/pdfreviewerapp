@@ -1,5 +1,6 @@
 'use strict';
 
+const mongoose = require('mongoose');
 const Suggestion = require('../models/SuggestionModel');
 const Logger = require('../common/logger');
 const { createError } = require('../common/error-handler');
@@ -55,6 +56,7 @@ async function createSuggestion(req, res, next) {
                     lineNumber: suggestion.lineNumber,
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
+                    status: suggestion.status || 'pending',
                     createdAt: suggestion.createdAt,
                 },
             },
@@ -109,6 +111,7 @@ async function getSuggestions(req, res, next) {
                     lineNumber: suggestion.lineNumber,
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
+                    status: suggestion.status || 'pending',
                     createdAt: suggestion.createdAt,
                     updatedAt: suggestion.updatedAt,
                 })),
@@ -154,6 +157,7 @@ async function getSuggestionById(req, res, next) {
                     lineNumber: suggestion.lineNumber,
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
+                    status: suggestion.status || 'pending',
                     createdAt: suggestion.createdAt,
                     updatedAt: suggestion.updatedAt,
                 },
@@ -213,6 +217,7 @@ async function updateSuggestion(req, res, next) {
                     lineNumber: suggestion.lineNumber,
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
+                    status: suggestion.status || 'pending',
                     createdAt: suggestion.createdAt,
                     updatedAt: suggestion.updatedAt,
                 },
@@ -264,11 +269,108 @@ async function deleteSuggestion(req, res, next) {
     }
 }
 
+/**
+ * Updates the status of a suggestion (admin only)
+ * @param {express.Request} req - Express request object
+ * @param {express.Response} res - Express response object
+ * @param {express.NextFunction} next - Express next function
+ * @returns {Promise<void>}
+ */
+async function updateSuggestionStatus(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!id) {
+            return next(createError(400, 'Suggestion ID is required'));
+        }
+        if (!status || !['pending', 'done', 'irrelevant', 'in_progress'].includes(status)) {
+            return next(createError(400, 'Valid status is required (pending, done, irrelevant, in_progress)'));
+        }
+
+        // Find suggestion
+        const suggestion = await Suggestion.findById(id);
+        if (!suggestion) {
+            return next(createError(404, 'Suggestion not found'));
+        }
+
+        // Update status
+        suggestion.status = status;
+        await suggestion.save();
+
+        Logger.info(`Suggestion ${id} status updated to ${status} by admin ${req.user.email}`);
+
+        res.status(200).json({
+            success: true,
+            message: 'Suggestion status updated successfully',
+            data: {
+                suggestion: {
+                    id: suggestion._id,
+                    fileName: suggestion.fileName,
+                    pdfId: suggestion.pdfId,
+                    pageNumber: suggestion.pageNumber,
+                    lineNumber: suggestion.lineNumber,
+                    comment: suggestion.comment,
+                    userEmail: suggestion.userEmail,
+                    status: suggestion.status,
+                    createdAt: suggestion.createdAt,
+                    updatedAt: suggestion.updatedAt,
+                },
+            },
+        });
+    } catch (error) {
+        Logger.error('Error updating suggestion status', error);
+        next(error);
+    }
+}
+
+/**
+ * Deletes multiple suggestions (admin only)
+ * @param {express.Request} req - Express request object
+ * @param {express.Response} res - Express response object
+ * @param {express.NextFunction} next - Express next function
+ * @returns {Promise<void>}
+ */
+async function deleteMultipleSuggestions(req, res, next) {
+    try {
+        const { suggestionIds } = req.body;
+
+        if (!suggestionIds || !Array.isArray(suggestionIds) || suggestionIds.length === 0) {
+            return next(createError(400, 'suggestionIds array is required and must not be empty'));
+        }
+
+        // Validate all IDs are valid MongoDB ObjectIds
+        const validIds = suggestionIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+        if (validIds.length !== suggestionIds.length) {
+            return next(createError(400, 'One or more suggestion IDs are invalid'));
+        }
+
+        // Delete suggestions
+        const result = await Suggestion.deleteMany({ _id: { $in: validIds } });
+
+        Logger.info(`Admin ${req.user.email} deleted ${result.deletedCount} suggestions`);
+
+        res.status(200).json({
+            success: true,
+            message: `${result.deletedCount} suggestion(s) deleted successfully`,
+            data: {
+                deletedCount: result.deletedCount,
+                requestedCount: suggestionIds.length,
+            },
+        });
+    } catch (error) {
+        Logger.error('Error deleting multiple suggestions', error);
+        next(error);
+    }
+}
+
 module.exports = {
     createSuggestion,
     getSuggestions,
     getSuggestionById,
     updateSuggestion,
     deleteSuggestion,
+    updateSuggestionStatus,
+    deleteMultipleSuggestions,
 };
 

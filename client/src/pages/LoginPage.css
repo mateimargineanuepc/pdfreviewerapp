@@ -3,7 +3,7 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--bg-primary);
     padding: 20px;
     position: relative;
     overflow: hidden;
@@ -16,26 +16,27 @@
     right: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--shadow-gold) 0%, transparent 70%);
     animation: pulse 15s ease-in-out infinite;
 }
 
 @keyframes pulse {
     0%, 100% {
         transform: scale(1);
-        opacity: 0.5;
+        opacity: 0.1;
     }
     50% {
         transform: scale(1.1);
-        opacity: 0.8;
+        opacity: 0.2;
     }
 }
 
 .login-container {
-    background: white;
+    background: var(--bg-card);
     padding: 45px 40px;
     border-radius: 16px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 12px 40px var(--shadow-dark), 0 0 1px var(--border-gold);
+    border: 1px solid var(--border-gold);
     width: 100%;
     max-width: 500px;
     min-width: 60%;
@@ -45,16 +46,17 @@
 
 .login-container h1 {
     margin: 0 0 12px 0;
-    color: #2c3e50;
+    color: var(--gold-primary);
     text-align: center;
     font-size: 28px;
     font-weight: 700;
     letter-spacing: -0.5px;
+    text-shadow: 0 0 10px var(--shadow-gold);
 }
 
 .login-container h2 {
     margin: 0 0 35px 0;
-    color: #6c757d;
+    color: var(--silver-accent);
     text-align: center;
     font-size: 16px;
     font-weight: 400;
@@ -72,7 +74,7 @@
 .form-group label {
     display: block;
     margin-bottom: 10px;
-    color: #2c3e50;
+    color: var(--silver-primary);
     font-weight: 600;
     font-size: 14px;
 }
@@ -80,56 +82,57 @@
 .form-group input {
     width: 100%;
     padding: 14px 16px;
-    border: 2px solid #e1e8ed;
+    border: 2px solid var(--border-color);
     border-radius: 10px;
     font-size: 16px;
     box-sizing: border-box;
     transition: all 0.3s ease;
-    background: #f8f9fa;
-    color: #2c3e50;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .form-group input:focus {
     outline: none;
-    border-color: #667eea;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--border-gold);
+    background: var(--bg-tertiary);
+    box-shadow: 0 0 0 4px var(--shadow-gold);
 }
 
 .form-group input:disabled {
-    background-color: #e9ecef;
+    background-color: var(--bg-secondary);
     cursor: not-allowed;
     opacity: 0.6;
 }
 
 .error-message {
-    background: linear-gradient(135deg, #fee 0%, #fdd 100%);
-    color: #c33;
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-accent);
     padding: 14px 18px;
     border-radius: 10px;
     margin-bottom: 22px;
-    border: 1px solid #fcc;
+    border: 1px solid var(--border-gold);
     font-weight: 500;
     font-size: 14px;
 }
 
 .submit-button {
     padding: 14px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
+    background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+    color: var(--bg-primary);
+    border: 1px solid var(--border-gold);
     border-radius: 10px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 12px var(--shadow-gold);
     margin-top: 8px;
 }
 
 .submit-button:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px var(--shadow-gold);
+    background: linear-gradient(135deg, var(--gold-accent) 0%, var(--gold-primary) 100%);
 }
 
 .submit-button:active:not(:disabled) {
@@ -149,19 +152,20 @@
 
 .register-link p {
     margin: 0;
-    color: #6c757d;
+    color: var(--silver-accent);
     font-size: 14px;
 }
 
 .register-link a {
-    color: #667eea;
+    color: var(--gold-primary);
     text-decoration: none;
     font-weight: 600;
     transition: color 0.3s ease;
+    text-shadow: 0 0 5px var(--shadow-gold);
 }
 
 .register-link a:hover {
-    color: #764ba2;
+    color: var(--gold-accent);
     text-decoration: underline;
 }
 

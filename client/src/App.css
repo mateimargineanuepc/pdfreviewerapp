@@ -13,8 +13,9 @@ body {
         'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #2c3e50;
+    color: var(--text-primary);
     line-height: 1.6;
+    background: var(--bg-primary);
 }
 
 #root {
@@ -60,9 +61,10 @@ a:focus,
 input:focus,
 select:focus,
 textarea:focus {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--gold-primary);
     outline-offset: 2px;
     border-radius: 4px;
+    box-shadow: 0 0 0 4px var(--shadow-gold);
 }
 
 /* App Layout */
@@ -71,7 +73,7 @@ textarea:focus {
     flex-direction: column;
     min-height: 100vh;
     width: 100%;
-    background: #f8f9fa;
+    background: var(--bg-primary);
     margin: 0 auto;
 }
 
@@ -92,11 +94,11 @@ a,
 
 /* Selection styling */
 ::selection {
-    background: rgba(102, 126, 234, 0.2);
-    color: #2c3e50;
+    background: var(--shadow-gold);
+    color: var(--text-primary);
 }
 
 ::-moz-selection {
-    background: rgba(102, 126, 234, 0.2);
-    color: #2c3e50;
+    background: var(--shadow-gold);
+    color: var(--text-primary);
 }

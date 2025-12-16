@@ -279,7 +279,11 @@ function RegisterPage() {
                             </p>
                         </div>
                     )}
-                    <button type="submit" disabled={loading || success} className="submit-button">
+                    <button 
+                        type="submit" 
+                        disabled={loading || success || Object.values(errors).some((error) => error !== '')} 
+                        className="submit-button"
+                    >
                         {loading ? 'Submitting Request...' : 'Submit Registration Request'}
                     </button>
                     <div className="login-link">

@@ -8,6 +8,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { useAuth } from '../context/AuthContext';
 import fileService from '../api-services/fileService';
 import suggestionService from '../api-services/suggestionService';
+import progressService from '../api-services/progressService';
 import './PdfViewerPage.css';
 
 // Set up PDF.js worker - use worker from node_modules via Vite
@@ -49,6 +50,11 @@ function PdfViewerPage() {
     const [extractingRows, setExtractingRows] = useState(false); // Track if we're currently extracting row numbers
     const pageRef = useRef(null);
     const textLayerRef = useRef(null);
+    const [selectedSuggestions, setSelectedSuggestions] = useState(new Set()); // Set of selected suggestion IDs (admin only)
+    const [updatingStatus, setUpdatingStatus] = useState(false); // Track status update operations
+    const [deletingSuggestions, setDeletingSuggestions] = useState(false); // Track bulk deletion
+    const [pageCompleted, setPageCompleted] = useState(false); // Whether current page is marked as done
+    const [togglingPageCompletion, setTogglingPageCompletion] = useState(false); // Track page completion toggle
 
     /**
      * Filters suggestions to show only those for the current page (or all for admins)
@@ -86,6 +92,18 @@ function PdfViewerPage() {
             loadSuggestions(selectedFile);
         }
     }, [selectedFile]);
+
+    /**
+     * Loads page completion status when page or file changes
+     * Also resets the state to prevent stale data
+     */
+    useEffect(() => {
+        if (selectedFile && pageNumber) {
+            // Reset state first to prevent showing stale data
+            setPageCompleted(false);
+            loadPageCompletionStatus();
+        }
+    }, [selectedFile, pageNumber]);
 
     /**
      * Handles responsive page width and orientation changes
@@ -136,6 +154,34 @@ function PdfViewerPage() {
     }, [pdfUrl]);
 
     /**
+     * Finds the first incomplete page for a document
+     * @param {string} fileName - Name of the PDF file
+     * @param {number} totalPages - Total number of pages
+     * @returns {Promise<number>} First incomplete page number (or 1 if all are complete)
+     */
+    const findFirstIncompletePage = async (fileName, totalPages) => {
+        try {
+            // Get user progress for this file
+            const result = await progressService.getUserProgress(fileName);
+            if (result.success && result.data.completedPages) {
+                const completedPages = result.data.completedPages;
+                
+                // Find first page that is not completed
+                for (let page = 1; page <= totalPages; page++) {
+                    if (!completedPages.includes(page)) {
+                        return page;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to find first incomplete page:', error);
+        }
+        
+        // If all pages are complete or error occurred, return page 1
+        return 1;
+    };
+
+    /**
      * Handles file selection from URL parameter
      * @param {string} filename - Name of the file to load
      */
@@ -146,10 +192,10 @@ function PdfViewerPage() {
         }
 
         setSelectedFile(filename);
-        setPageNumber(1);
         setLoading(true);
         setError('');
         setPdfUrl(null); // Clear previous PDF URL to show loading state
+        setPageCompleted(false); // Reset page completion state
 
         try {
             // Fetch PDF as data URL using secure method (token in header, not URL)
@@ -157,6 +203,7 @@ function PdfViewerPage() {
             if (result.success) {
                 // Use data URL instead of blob URL to avoid CSP issues
                 setPdfUrl(result.data.dataUrl);
+                // Note: We'll set the page number after the document loads in onDocumentLoadSuccess
             } else {
                 setError(result.error || 'Failed to load PDF');
             }
@@ -175,6 +222,150 @@ function PdfViewerPage() {
         const result = await suggestionService.getSuggestions(fileName);
         if (result.success) {
             setSuggestions(result.data);
+            // Clear selected suggestions when reloading
+            setSelectedSuggestions(new Set());
+        }
+    };
+
+    /**
+     * Handles status update for a suggestion (admin only)
+     * @param {string} suggestionId - ID of the suggestion
+     * @param {string} newStatus - New status value
+     */
+    const handleStatusChange = async (suggestionId, newStatus) => {
+        if (!user || user.role !== 'admin') {
+            return;
+        }
+
+        setUpdatingStatus(true);
+        try {
+            const result = await suggestionService.updateSuggestionStatus(suggestionId, newStatus);
+            if (result.success) {
+                // Update the suggestion in the local state
+                setSuggestions((prev) =>
+                    prev.map((s) => (s.id === suggestionId ? { ...s, status: newStatus } : s))
+                );
+            } else {
+                alert(`Failed to update status: ${result.error}`);
+            }
+        } catch (error) {
+            alert(`Error updating status: ${error.message}`);
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    /**
+     * Handles checkbox toggle for suggestion selection (admin only)
+     * @param {string} suggestionId - ID of the suggestion
+     * @param {boolean} checked - Whether the checkbox is checked
+     */
+    const handleSuggestionSelect = (suggestionId, checked) => {
+        if (!user || user.role !== 'admin') {
+            return;
+        }
+
+        setSelectedSuggestions((prev) => {
+            const newSet = new Set(prev);
+            if (checked) {
+                newSet.add(suggestionId);
+            } else {
+                newSet.delete(suggestionId);
+            }
+            return newSet;
+        });
+    };
+
+    /**
+     * Handles select all/deselect all for suggestions (admin only)
+     * @param {boolean} selectAll - Whether to select all or deselect all
+     */
+    const handleSelectAll = (selectAll) => {
+        if (!user || user.role !== 'admin') {
+            return;
+        }
+
+        if (selectAll) {
+            const allIds = getCurrentPageSuggestions().map((s) => s.id);
+            setSelectedSuggestions(new Set(allIds));
+        } else {
+            setSelectedSuggestions(new Set());
+        }
+    };
+
+    /**
+     * Handles bulk deletion of selected suggestions (admin only)
+     */
+    const handleDeleteSelected = async () => {
+        if (!user || user.role !== 'admin' || selectedSuggestions.size === 0) {
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete ${selectedSuggestions.size} suggestion(s)?`)) {
+            return;
+        }
+
+        setDeletingSuggestions(true);
+        try {
+            const result = await suggestionService.deleteMultipleSuggestions(Array.from(selectedSuggestions));
+            if (result.success) {
+                // Remove deleted suggestions from local state
+                setSuggestions((prev) => prev.filter((s) => !selectedSuggestions.has(s.id)));
+                // Clear selection
+                setSelectedSuggestions(new Set());
+                alert(`Successfully deleted ${result.data.deletedCount} suggestion(s)`);
+            } else {
+                alert(`Failed to delete suggestions: ${result.error}`);
+            }
+        } catch (error) {
+            alert(`Error deleting suggestions: ${error.message}`);
+        } finally {
+            setDeletingSuggestions(false);
+        }
+    };
+
+    /**
+     * Loads page completion status for the current page
+     */
+    const loadPageCompletionStatus = async () => {
+        if (!selectedFile || !pageNumber) return;
+        
+        try {
+            // Reset state first to prevent showing stale data
+            setPageCompleted(false);
+            
+            const result = await progressService.getPageProgress(selectedFile, pageNumber);
+            if (result.success) {
+                setPageCompleted(result.data.isCompleted);
+            } else {
+                // If request failed, ensure state is false
+                setPageCompleted(false);
+            }
+        } catch (error) {
+            console.error('Failed to load page completion status:', error);
+            // On error, ensure state is false
+            setPageCompleted(false);
+        }
+    };
+
+    /**
+     * Handles toggling page completion status
+     */
+    const handleTogglePageCompletion = async () => {
+        if (!selectedFile || togglingPageCompletion) return;
+
+        setTogglingPageCompletion(true);
+        try {
+            const result = await progressService.togglePageCompletion(selectedFile, pageNumber);
+            if (result.success) {
+                setPageCompleted(result.data.isCompleted);
+            } else {
+                alert(`Failed to update page status: ${result.error}`);
+            }
+        } catch (error) {
+            alert(`Error updating page status: ${error.message}`);
+        } finally {
+            setTogglingPageCompletion(false);
         }
     };
 
@@ -182,10 +373,17 @@ function PdfViewerPage() {
      * Handles PDF load success
      * @param {Object} data - PDF document data
      */
-    const onDocumentLoadSuccess = ({ numPages }) => {
+    const onDocumentLoadSuccess = async ({ numPages }) => {
         setNumPages(numPages);
-        setPageNumber(1);
         setTextLines([]); // Reset text lines when document loads
+        
+        // Find first incomplete page and navigate to it
+        if (selectedFile && numPages) {
+            const firstIncompletePage = await findFirstIncompletePage(selectedFile, numPages);
+            setPageNumber(firstIncompletePage);
+        } else {
+            setPageNumber(1);
+        }
     };
 
     /**
@@ -853,8 +1051,28 @@ function PdfViewerPage() {
                     </div>
                 )}
 
+                {/* Page Completion Button - Before suggestions */}
+                {selectedFile && user && (
+                    <div className="page-completion-section">
+                        <button
+                            type="button"
+                            onClick={handleTogglePageCompletion}
+                            disabled={togglingPageCompletion}
+                            className={`page-done-button ${pageCompleted ? 'completed' : ''}`}
+                            title={pageCompleted ? 'Click to remove done status for this page' : 'Click to mark page as complete'}
+                        >
+                            {togglingPageCompletion ? 'Updating...' : 'Done'}
+                        </button>
+                        <p className="page-done-explanation">
+                            {pageCompleted 
+                                ? 'Click to remove done status for this page' 
+                                : 'Click to mark page as complete'}
+                        </p>
+                    </div>
+                )}
+
                 {/* Suggestion Form */}
-                {selectedFile && (
+                {selectedFile && user && (
                     <div className="suggestion-section">
                         <h2>Add Suggestion</h2>
                         <form onSubmit={handleSubmitSuggestion} className="suggestion-form">
@@ -920,14 +1138,39 @@ function PdfViewerPage() {
                                 </>
                             )}
                         </h2>
+                        {user && user.role === 'admin' && getCurrentPageSuggestions().length > 0 && (
+                            <div className="admin-suggestion-controls">
+                                <div className="selection-controls">
+                                    <label className="select-all-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedSuggestions.size === getCurrentPageSuggestions().length && getCurrentPageSuggestions().length > 0}
+                                            onChange={(e) => handleSelectAll(e.target.checked)}
+                                        />
+                                        <span>Select All</span>
+                                    </label>
+                                    {selectedSuggestions.size > 0 && (
+                                        <button
+                                            className="delete-selected-button"
+                                            onClick={handleDeleteSelected}
+                                            disabled={deletingSuggestions}
+                                        >
+                                            {deletingSuggestions ? 'Deleting...' : `Delete Selected (${selectedSuggestions.size})`}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         {getCurrentPageSuggestions().length > 0 ? (
                             <table className="suggestions-table">
                                 <thead>
                                     <tr>
+                                        {user && user.role === 'admin' && <th>Select</th>}
                                         {user && user.role === 'admin' && <th>Page</th>}
                                         <th>Line</th>
                                         <th>Comment</th>
                                         <th>User</th>
+                                        {user && user.role === 'admin' && <th>Status</th>}
                                         <th>Date</th>
                                     </tr>
                                 </thead>
@@ -945,11 +1188,35 @@ function PdfViewerPage() {
                                         .map((suggestion) => (
                                             <tr key={suggestion.id}>
                                                 {user && user.role === 'admin' && (
+                                                    <td data-label="Select">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedSuggestions.has(suggestion.id)}
+                                                            onChange={(e) => handleSuggestionSelect(suggestion.id, e.target.checked)}
+                                                        />
+                                                    </td>
+                                                )}
+                                                {user && user.role === 'admin' && (
                                                     <td data-label="Page">{suggestion.pageNumber}</td>
                                                 )}
                                                 <td data-label="Line">{suggestion.lineNumber}</td>
                                                 <td data-label="Comment">{suggestion.comment}</td>
                                                 <td data-label="User">{suggestion.userEmail}</td>
+                                                {user && user.role === 'admin' && (
+                                                    <td data-label="Status">
+                                                        <select
+                                                            value={suggestion.status || 'pending'}
+                                                            onChange={(e) => handleStatusChange(suggestion.id, e.target.value)}
+                                                            disabled={updatingStatus}
+                                                            className="status-select"
+                                                        >
+                                                            <option value="pending">Pending</option>
+                                                            <option value="in_progress">In Progress</option>
+                                                            <option value="done">Done</option>
+                                                            <option value="irrelevant">Irrelevant</option>
+                                                        </select>
+                                                    </td>
+                                                )}
                                                 <td data-label="Date">
                                                     {new Date(suggestion.createdAt).toLocaleDateString()}
                                                 </td>

@@ -9,6 +9,7 @@ import { useOrientation } from '../hooks/useOrientation';
 import { useAuth } from '../context/AuthContext';
 import FileUpload from '../components/FileUpload';
 import fileService from '../api-services/fileService';
+import progressService from '../api-services/progressService';
 import './DocumentSelectionPage.css';
 
 // Set up PDF.js worker - use worker from node_modules via Vite
@@ -37,6 +38,8 @@ function DocumentSelectionPage() {
     const [previewUrls, setPreviewUrls] = useState({});
     const [selectedFiles, setSelectedFiles] = useState(new Set());
     const [deleting, setDeleting] = useState(false);
+    const [progressData, setProgressData] = useState({}); // { fileName: { completedPages: [], totalPages: number, percentage: number } }
+    const [pageCounts, setPageCounts] = useState({}); // Cache for PDF page counts
     const navigate = useNavigate();
     const orientation = useOrientation();
     const { user } = useAuth();
@@ -69,6 +72,15 @@ function DocumentSelectionPage() {
             loadPreviewUrls();
         }
     }, [files]);
+
+    /**
+     * Loads progress for all files when files change
+     */
+    useEffect(() => {
+        if (files.length > 0 && user) {
+            loadAllProgress();
+        }
+    }, [files, user]);
 
     /**
      * Recalculate layout on orientation change
@@ -227,6 +239,88 @@ function DocumentSelectionPage() {
         setSearchQuery(e.target.value);
     };
 
+    /**
+     * Gets page count for a PDF file
+     * @param {string} fileName - Name of the PDF file
+     * @returns {Promise<number>} Total number of pages
+     */
+    const getPageCount = async (fileName) => {
+        // Check cache first
+        if (pageCounts[fileName]) {
+            return pageCounts[fileName];
+        }
+
+        try {
+            // Load PDF to get page count
+            const result = await fileService.getFileBlob(fileName, true);
+            if (result.success && result.data.dataUrl) {
+                // Use pdfjs to get page count from data URL
+                const { getDocument } = await import('pdfjs-dist');
+                // Extract base64 data from data URL
+                const base64Data = result.data.dataUrl.split(',')[1];
+                if (base64Data) {
+                    // Convert base64 to Uint8Array
+                    const binaryString = atob(base64Data);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    const loadingTask = getDocument({ data: bytes });
+                    const pdf = await loadingTask.promise;
+                    const count = pdf.numPages;
+                    
+                    // Cache the page count
+                    setPageCounts((prev) => ({ ...prev, [fileName]: count }));
+                    return count;
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to get page count for ${fileName}:`, error);
+        }
+        
+        return 0;
+    };
+
+    /**
+     * Loads progress for all files
+     */
+    const loadAllProgress = async () => {
+        if (!user) return;
+
+        const progress = {};
+        
+        // Load progress for each file
+        for (const file of files) {
+            try {
+                const result = await progressService.getUserProgress(file.name);
+                if (result.success) {
+                    // Get page count for this file
+                    const totalPages = await getPageCount(file.name);
+                    const completedCount = result.data.completedPages.length;
+                    const percentage = totalPages > 0 ? Math.round((completedCount / totalPages) * 100) : 0;
+                    
+                    progress[file.name] = {
+                        completedPages: result.data.completedPages,
+                        completedCount: completedCount,
+                        totalPages: totalPages,
+                        percentage: percentage,
+                    };
+                }
+            } catch (error) {
+                console.error(`Failed to load progress for ${file.name}:`, error);
+                progress[file.name] = {
+                    completedPages: [],
+                    completedCount: 0,
+                    totalPages: 0,
+                    percentage: 0,
+                };
+            }
+        }
+        
+        setProgressData(progress);
+    };
+
     return (
         <div className="document-selection-page">
             <div className="document-selection-container">
@@ -369,6 +463,28 @@ function DocumentSelectionPage() {
                                     style={{ pointerEvents: 'none' }}
                                 >
                                     <div className="document-name">{file.name}</div>
+                                    {/* Progress Bar */}
+                                    {progressData[file.name] && (
+                                        <div className="document-progress">
+                                            <div className="progress-bar-container">
+                                                <div
+                                                    className="progress-bar-fill"
+                                                    style={{
+                                                        width: `${progressData[file.name].percentage}%`,
+                                                        backgroundColor: progressData[file.name].percentage > 0 
+                                                            ? 'var(--gold-primary)' 
+                                                            : 'var(--border-color)',
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="progress-text">
+                                                {progressData[file.name].percentage}% ({progressData[file.name].completedCount}
+                                                {progressData[file.name].totalPages > 0 
+                                                    ? `/${progressData[file.name].totalPages}` 
+                                                    : ''})
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="document-info">
                                         <small>
                                             {file.size ? `${(file.size / 1024).toFixed(1)} KB` : '—'}

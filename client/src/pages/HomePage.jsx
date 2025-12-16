@@ -15,7 +15,7 @@ function HomePage() {
         <div className="home-page">
             <div className="home-container">
                 <h1>Bine ati venit la aplicatia mea dedicata 
-                corectarii si completariiAnastasimatarului scris de T.V Stupcanu</h1>
+                corectarii si completarii Anastasimatarului scris de T.V Stupcanu</h1>
                 <h2>Cateva informatii despre acest proiect</h2>
                 <p>Acest proiect a inceput la initiativa mea, Matei Margineanu si 
                     implementat cu ajutorul lui Ioan Capatana care este si principalul tehnoredactor 

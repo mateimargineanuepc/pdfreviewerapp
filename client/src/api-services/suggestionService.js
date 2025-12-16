@@ -94,6 +94,47 @@ class SuggestionService {
             };
         }
     }
+
+    /**
+     * Updates the status of a suggestion (admin only)
+     * @param {string} id - Suggestion ID
+     * @param {string} status - New status (pending, done, irrelevant, in_progress)
+     * @returns {Promise<Object>} Updated suggestion
+     */
+    async updateSuggestionStatus(id, status) {
+        try {
+            const response = await api.patch(`/api/suggestions/${id}/status`, { status });
+            return {
+                success: true,
+                data: response.data.data.suggestion,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error?.message || error.message || 'Failed to update suggestion status',
+            };
+        }
+    }
+
+    /**
+     * Deletes multiple suggestions (admin only)
+     * @param {string[]} suggestionIds - Array of suggestion IDs to delete
+     * @returns {Promise<Object>} Deletion result
+     */
+    async deleteMultipleSuggestions(suggestionIds) {
+        try {
+            const response = await api.post('/api/suggestions/delete-multiple', { suggestionIds });
+            return {
+                success: true,
+                data: response.data.data,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error?.message || error.message || 'Failed to delete suggestions',
+            };
+        }
+    }
 }
 
 export default new SuggestionService();

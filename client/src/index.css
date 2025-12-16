@@ -7,6 +7,34 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    
+    /* Dark Theme Color Palette */
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --bg-card: #1e1e1e;
+    --bg-hover: #2e2e2e;
+    
+    --gold-primary: #d4af37;
+    --gold-secondary: #f4d03f;
+    --gold-accent: #ffd700;
+    --gold-dark: #b8941f;
+    
+    --silver-primary: #c0c0c0;
+    --silver-secondary: #e8e8e8;
+    --silver-accent: #b8b8b8;
+    
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-muted: #a0a0a0;
+    
+    --border-color: #3a3a3a;
+    --border-gold: #d4af37;
+    --border-silver: #c0c0c0;
+    
+    --shadow-gold: rgba(212, 175, 55, 0.3);
+    --shadow-silver: rgba(192, 192, 192, 0.2);
+    --shadow-dark: rgba(0, 0, 0, 0.5);
 }
 
 #root {
@@ -14,6 +42,7 @@
     min-height: 100vh;
     margin: 0;
     padding: 0;
+    background: var(--bg-primary);
 }
 
 body {
@@ -21,4 +50,6 @@ body {
     padding: 0;
     width: 100%;
     min-height: 100vh;
+    background: var(--bg-primary);
+    color: var(--text-primary);
 }

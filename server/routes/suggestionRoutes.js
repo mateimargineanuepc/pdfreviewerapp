@@ -7,8 +7,11 @@ const {
     getSuggestionById,
     updateSuggestion,
     deleteSuggestion,
+    updateSuggestionStatus,
+    deleteMultipleSuggestions,
 } = require('../controllers/suggestionController');
 const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 const router = express.Router();
 
@@ -20,15 +23,6 @@ const router = express.Router();
  * @returns {Object} List of suggestions sorted by page number
  */
 router.get('/', getSuggestions);
-
-/**
- * GET /api/suggestions/:id
- * Get a single suggestion by ID
- * @route GET /api/suggestions/:id
- * @param {string} id - Suggestion ID
- * @returns {Object} Suggestion data
- */
-router.get('/:id', getSuggestionById);
 
 /**
  * POST /api/suggestions
@@ -45,6 +39,25 @@ router.get('/:id', getSuggestionById);
 router.post('/', authMiddleware, createSuggestion);
 
 /**
+ * POST /api/suggestions/delete-multiple
+ * Delete multiple suggestions (admin only)
+ * @route POST /api/suggestions/delete-multiple
+ * @header Authorization: Bearer <token>
+ * @body {string[]} suggestionIds - Array of suggestion IDs to delete
+ * @returns {Object} Success message with deleted count
+ */
+router.post('/delete-multiple', authMiddleware, adminMiddleware, deleteMultipleSuggestions);
+
+/**
+ * GET /api/suggestions/:id
+ * Get a single suggestion by ID
+ * @route GET /api/suggestions/:id
+ * @param {string} id - Suggestion ID
+ * @returns {Object} Suggestion data
+ */
+router.get('/:id', getSuggestionById);
+
+/**
  * PUT /api/suggestions/:id
  * Update a suggestion (protected route - only by creator)
  * @route PUT /api/suggestions/:id
@@ -54,6 +67,17 @@ router.post('/', authMiddleware, createSuggestion);
  * @returns {Object} Updated suggestion data
  */
 router.put('/:id', authMiddleware, updateSuggestion);
+
+/**
+ * PATCH /api/suggestions/:id/status
+ * Update suggestion status (admin only)
+ * @route PATCH /api/suggestions/:id/status
+ * @header Authorization: Bearer <token>
+ * @param {string} id - Suggestion ID
+ * @body {string} status - New status (pending, done, irrelevant, in_progress)
+ * @returns {Object} Updated suggestion data
+ */
+router.patch('/:id/status', authMiddleware, adminMiddleware, updateSuggestionStatus);
 
 /**
  * DELETE /api/suggestions/:id

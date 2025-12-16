@@ -1,6 +1,6 @@
 'use strict';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../api-services/api';
 
 /**
@@ -125,12 +125,80 @@ export function AuthProvider({ children }) {
      * Logout function
      * Clears token and user data from localStorage and state
      */
-    const logout = () => {
+    const logout = useCallback(() => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setToken(null);
         setUser(null);
-    };
+    }, []);
+
+    /**
+     * Inactivity timer - logs out user after 45 minutes of inactivity
+     * Tracks: mouse movements, clicks, keyboard input, scroll, touch events
+     */
+    useEffect(() => {
+        // Only set up inactivity timer if user is authenticated
+        if (!token || !user) {
+            return;
+        }
+
+        const INACTIVITY_TIMEOUT = 45 * 60 * 1000; // 45 minutes in milliseconds
+        let inactivityTimer = null;
+
+        /**
+         * Resets the inactivity timer
+         */
+        const resetInactivityTimer = () => {
+            // Clear existing timer
+            if (inactivityTimer) {
+                clearTimeout(inactivityTimer);
+            }
+
+            // Set new timer
+            inactivityTimer = setTimeout(() => {
+                // Logout user after inactivity timeout
+                console.log('User inactive for 45 minutes. Logging out...');
+                logout();
+                // Redirect to login page
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
+            }, INACTIVITY_TIMEOUT);
+        };
+
+        /**
+         * Event handlers for user activity
+         */
+        const activityEvents = [
+            'mousedown',
+            'mousemove',
+            'keypress',
+            'scroll',
+            'touchstart',
+            'click',
+            'keydown',
+        ];
+
+        // Set up event listeners for user activity
+        activityEvents.forEach((event) => {
+            document.addEventListener(event, resetInactivityTimer, true);
+        });
+
+        // Initialize timer on mount
+        resetInactivityTimer();
+
+        // Cleanup function
+        return () => {
+            // Clear timer
+            if (inactivityTimer) {
+                clearTimeout(inactivityTimer);
+            }
+            // Remove event listeners
+            activityEvents.forEach((event) => {
+                document.removeEventListener(event, resetInactivityTimer, true);
+            });
+        };
+    }, [token, user, logout]);
 
     const value = {
         user,

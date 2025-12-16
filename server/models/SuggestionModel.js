@@ -47,6 +47,12 @@ const suggestionSchema = new mongoose.Schema(
             lowercase: true,
             trim: true,
         },
+        status: {
+            type: String,
+            enum: ['pending', 'done', 'irrelevant', 'in_progress'],
+            default: 'pending',
+            trim: true,
+        },
     },
     {
         timestamps: true,
@@ -61,6 +67,9 @@ suggestionSchema.index({ fileName: 1, pageNumber: 1 });
 
 // Index on userEmail for filtering suggestions by user
 suggestionSchema.index({ userEmail: 1 });
+
+// Index on status for filtering suggestions by status
+suggestionSchema.index({ status: 1 });
 
 /**
  * Suggestion Model
