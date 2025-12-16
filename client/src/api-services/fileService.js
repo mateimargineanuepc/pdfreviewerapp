@@ -74,8 +74,11 @@ class FileService {
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
             const token = localStorage.getItem('token');
 
+            // Remove trailing slash from API_BASE_URL to avoid double slashes
+            const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+            
             const response = await fetch(
-                `${API_BASE_URL}/api/files/${encodeURIComponent(filename)}/proxy`,
+                `${baseUrl}/api/files/${encodeURIComponent(filename)}/proxy`,
                 {
                     method: 'GET',
                     headers: {

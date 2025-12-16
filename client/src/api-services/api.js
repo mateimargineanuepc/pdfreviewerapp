@@ -3,7 +3,8 @@
 import axios from 'axios';
 
 // Base URL for the backend API
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Remove trailing slash to avoid double slashes in URLs
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 /**
  * Creates an axios instance with default configuration
