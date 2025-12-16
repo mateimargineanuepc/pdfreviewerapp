@@ -1,0 +1,144 @@
+PDF Review Application: Project Rules and Standards
+JavaScript Standards (Replacing TypeScript)
+
+    Use strict mode ('use strict';) in all non-module files for optimized JavaScript execution.
+
+    Implement JSDoc types extensively for function parameters, return values, and complex object definitions to maintain type clarity in the absence of TypeScript.
+
+    Implement proper error handling with try-catch blocks in all asynchronous API service methods and controllers.
+
+    Use async/await exclusively instead of raw Promise chaining.
+
+    Follow ESLint rules defined in eslint.config.mjs (must enforce strong variable checks).
+
+Formatting Rules (Prettier)
+
+    Single quotes for strings.
+
+    4-space indentation.
+
+    120 character line width.
+
+    Semicolons required.
+
+    Trailing commas in ES5 style.
+
+Documentation Standards
+
+    Use JSDoc comments for all public methods, service classes, exported constants, and React components.
+
+    Include parameter descriptions and return types in JSDoc.
+
+    Document complex business logic, especially the JWT creation, Firebase Signed URL generation, and MongoDB query logic.
+
+    Use inline comments for non-obvious code sections and logic paths.
+
+    Keep README.md and environment documentation files updated.
+
+Database Access Standards (MongoDB)
+
+    Use Mongoose Schemas for all data models (User, Suggestion) to enforce data consistency.
+
+    Implement indexing on frequently queried fields (email in User, fileName in Suggestion).
+
+    Data Sanitization: Validate and sanitize all user input before saving to the database to prevent injection attacks.
+
+    Password Hashing: Use bcryptjs with a consistent salt round count (e.g., 10) for all password storage.
+
+    Logger Use: Log all successful and failed database connection attempts using the Logger class.
+
+API Service Structure (Backend)
+
+    Extend BaseApi class for all service classes (AuthService, SuggestionService, FileService).
+
+    Endpoint Types: Define and adhere to a clear API endpoint classification (e.g., /api/auth, /api/files, /api/suggestions).
+
+    Error Handling: Use a centralized error-handler.js to log errors and return standardized JSON error responses (e.g., status 401, 404, 500) with descriptive messages.
+
+    Authentication: All data-modifying or sensitive data-fetching methods must first call the authentication middleware to validate the JWT.
+
+    File Access: All PDF access must be mediated by the FileService to generate Firebase Signed URLs; direct file paths must never be exposed.
+
+    Follow Naming: {Domain}Service class with descriptive methods (e.g., registerUser, getSecuredPdfUrl).
+
+React Component Structure (Frontend)
+
+    Extend BasePage (implicit concept in React router) for all top-level routes (e.g., Login, Viewer).
+
+    Component Naming: Use PascalCase for all component files (e.g., LoginPage.jsx, PdfViewer.jsx).
+
+    State Management: Use the Context API for global state (e.g., Auth status, JWT token). Avoid prop drilling.
+
+    Data Fetching: Isolate all data fetching logic within custom hooks or the API Service Structure of the frontend (e.g., using Axios).
+
+    Styling: Use a consistent styling approach (e.g., CSS Modules or Styled Components) throughout the project.
+
+Naming Patterns
+
+    Test files: {feature-name}.spec.js (kebab-case).
+
+    Component files: {Component-Name}.jsx (PascalCase).
+
+    API services: {Service}Service.js (e.g., AuthService.js).
+
+    Models: {ModelName}Model.js (e.g., UserModel.js).
+
+    Types/Interfaces: Use descriptive object literals or JSDoc @typedef tags.
+
+    Utilities: {utility-name}.js (kebab-case, e.g., date-utils.js).
+
+Folder Structure
+
+    client/ - (Frontend React application)
+
+        src/components/ - Reusable UI components.
+
+        src/pages/ - Top-level route components.
+
+        src/context/ - Context API providers (e.g., AuthContext.js).
+
+        src/api-services/ - Frontend wrappers for API calls (using Axios).
+
+    server/ - (Backend Node.js/Express application)
+
+        api-data/ - API services, handlers, and models.
+
+        common/ - Shared utilities and helpers (logger.js, error-handler.js).
+
+        types/ - JSDoc @typedef definitions and enums.
+
+        config/ - Firebase initialization.
+
+        routes/ - Express routing definitions.
+
+Utility Patterns
+
+    Use Date utilities (if implemented) for all date operations.
+
+    Use Logger for all logging needs.
+
+    Use appropriate log levels: error, warn, info, debug, detailed.
+
+    Implement a centralized utility for handling environment variables and configuration.
+
+Performance and Security Considerations
+
+    Authentication: JWT must be stored securely (e.g., in localStorage or sessionStorage for this scope).
+
+    CORS: Implement CORS middleware only allowing requests from the Frontend domain (client/ domain).
+
+    Rate Limiting: Implement basic rate limiting on authentication routes (/register, /login) to prevent brute-force attacks.
+
+    Cleanup: Ensure efficient database connection cleanup upon server shutdown.
+
+    Efficient Locators: (Frontend rule) Use performance-friendly selectors for UI elements.
+
+Consistent Logging
+
+    Use Logger class from common/logger.js.
+
+    Use appropriate log levels: error, warn, info, debug, detailed.
+
+    Include contextual information in log messages (e.g., API endpoint hit, IP address, user email).
+
+    Use structured error messages in API services before sending responses.

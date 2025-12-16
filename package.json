@@ -1,0 +1,31 @@
+{
+  "name": "pdf-review-application",
+  "version": "1.0.0",
+  "description": "PDF Review Application - Full Stack MERN Application",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start.js",
+    "start:server": "cd server && npm start",
+    "start:client": "cd client && npm run dev",
+    "install:all": "npm run install:server && npm run install:client",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "dev": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "build": "cd client && npm run build",
+    "test:server": "cd server && npm test"
+  },
+  "keywords": [
+    "pdf",
+    "review",
+    "mern",
+    "react",
+    "nodejs",
+    "mongodb",
+    "firebase"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
