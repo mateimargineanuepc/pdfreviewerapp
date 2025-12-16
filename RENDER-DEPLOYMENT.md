@@ -9,9 +9,13 @@ Set to: **`server`** (sau `/server`)
 ```
 npm install
 ```
+sau
+```
+npm run build
+```
 sau lasă gol (Render va rula automat `npm install`)
 
-**Notă**: Pentru Node.js/Express nu este nevoie de un build step real, doar instalarea dependențelor.
+**Notă**: Am adăugat un script "build" în `package.json` care este doar un placeholder. Render va rula automat `npm install` înainte de build.
 
 ### Start Command
 ```
