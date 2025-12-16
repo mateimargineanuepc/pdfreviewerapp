@@ -53,7 +53,7 @@ function Navigation() {
             <div className="nav-container">
                 {/* Logo/Brand */}
                 <Link to="/" className="nav-brand" onClick={closeMenu}>
-                    <h2>PDF Review</h2>
+                    <h2>Anastasimatar Stupcanu - Corectare</h2>
                 </Link>
 
                 {/* Desktop Navigation */}
