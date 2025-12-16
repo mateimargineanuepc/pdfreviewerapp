@@ -1,0 +1,84 @@
+.backend-health-check {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.health-check-container {
+    text-align: center;
+    padding: 40px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px var(--shadow-dark), 0 0 1px var(--border-gold);
+    border: 1px solid var(--border-gold);
+    max-width: 400px;
+    width: 90%;
+}
+
+.health-check-container h2 {
+    margin: 30px 0 15px 0;
+    color: var(--gold-primary);
+    font-size: 24px;
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--shadow-gold);
+}
+
+.health-check-container p {
+    margin: 10px 0;
+    color: var(--silver-accent);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.retry-info {
+    color: var(--silver-primary);
+    font-size: 13px;
+    font-style: italic;
+    margin-top: 20px;
+}
+
+.health-check-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid var(--bg-tertiary);
+    border-top: 4px solid var(--gold-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+    box-shadow: 0 0 20px var(--shadow-gold);
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+    .health-check-container {
+        padding: 30px 20px;
+        max-width: 90%;
+    }
+
+    .health-check-container h2 {
+        font-size: 20px;
+    }
+
+    .health-check-spinner {
+        width: 50px;
+        height: 50px;
+        border-width: 3px;
+    }
+}
+

@@ -262,8 +262,8 @@ function AdminDashboardPage() {
                             <div key={registration.id} className="registration-card">
                                 <div className="registration-header">
                                     <div className="registration-email">{registration.email}</div>
-                                    <div className={`registration-status status-${registration.registrationStatus}`}>
-                                        {registration.registrationStatus.toUpperCase()}
+                                    <div className={`registration-status status-${registration.registrationStatus || 'pending'}`}>
+                                        {(registration.registrationStatus || 'pending').toUpperCase()}
                                     </div>
                                 </div>
                                 <div className="registration-details">
@@ -281,7 +281,7 @@ function AdminDashboardPage() {
                                         Registered: {new Date(registration.createdAt).toLocaleString()}
                                     </small>
                                 </div>
-                                {registration.registrationStatus === 'pending' && (
+                                {(!registration.registrationStatus || registration.registrationStatus === 'pending') && (
                                     <div className="registration-actions">
                                         <button
                                             onClick={() => handleApprove(registration.id)}
