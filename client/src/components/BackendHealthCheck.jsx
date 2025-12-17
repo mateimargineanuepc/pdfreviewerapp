@@ -17,8 +17,12 @@ function BackendHealthCheck({ children }) {
     const [backendAvailable, setBackendAvailable] = useState(false);
     const [checking, setChecking] = useState(true);
     const [retryCount, setRetryCount] = useState(0);
+    const [showSkipOption, setShowSkipOption] = useState(false);
     const isMountedRef = useRef(true);
     const retryIntervalRef = useRef(null);
+    const abortControllerRef = useRef(null);
+    const checkingRef = useRef(false); // Prevent concurrent checks
+    const MAX_RETRIES = 10; // Maximum retries before showing skip option
     const { t } = useI18n();
 
     useEffect(() => {
@@ -33,12 +37,25 @@ function BackendHealthCheck({ children }) {
          * Checks backend health and retries if needed
          */
         const checkHealth = async () => {
-            if (!isMountedRef.current) return;
+            // Prevent concurrent checks
+            if (checkingRef.current || !isMountedRef.current) {
+                return;
+            }
+
+            checkingRef.current = true;
+
+            // Cancel any previous request
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+
+            // Create new AbortController for this request
+            abortControllerRef.current = new AbortController();
 
             try {
-                const isAvailable = await healthService.checkBackendHealth(3000); // 3 second timeout
+                const isAvailable = await healthService.checkBackendHealth(3000, abortControllerRef.current.signal);
                 
-                if (isMountedRef.current) {
+                if (isMountedRef.current && !abortControllerRef.current.signal.aborted) {
                     if (isAvailable) {
                         setBackendAvailable(true);
                         setChecking(false);
@@ -48,14 +65,34 @@ function BackendHealthCheck({ children }) {
                         }
                     } else {
                         // Backend not available, will retry on next interval
-                        setRetryCount((prev) => prev + 1);
+                        setRetryCount((prev) => {
+                            const newCount = prev + 1;
+                            // Show skip option after MAX_RETRIES
+                            if (newCount >= MAX_RETRIES) {
+                                setShowSkipOption(true);
+                            }
+                            return newCount;
+                        });
                     }
                 }
             } catch (error) {
-                // Error checking health, will retry
-                if (isMountedRef.current) {
-                    setRetryCount((prev) => prev + 1);
+                // Ignore abort errors
+                if (error.name === 'AbortError' || error.name === 'CanceledError') {
+                    return;
                 }
+                // Error checking health, will retry
+                if (isMountedRef.current && !abortControllerRef.current.signal.aborted) {
+                    setRetryCount((prev) => {
+                        const newCount = prev + 1;
+                        // Show skip option after MAX_RETRIES
+                        if (newCount >= MAX_RETRIES) {
+                            setShowSkipOption(true);
+                        }
+                        return newCount;
+                    });
+                }
+            } finally {
+                checkingRef.current = false;
             }
         };
 
@@ -64,7 +101,7 @@ function BackendHealthCheck({ children }) {
 
         // Set up retry interval (1000ms as requested)
         retryIntervalRef.current = setInterval(() => {
-            if (isMountedRef.current && !backendAvailable) {
+            if (isMountedRef.current && !backendAvailable && !checkingRef.current) {
                 checkHealth();
             }
         }, 1000);
@@ -72,12 +109,17 @@ function BackendHealthCheck({ children }) {
         // Cleanup
         return () => {
             isMountedRef.current = false;
+            checkingRef.current = false;
             if (retryIntervalRef.current) {
                 clearInterval(retryIntervalRef.current);
                 retryIntervalRef.current = null;
             }
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
         };
-    }, [backendAvailable]); // Include backendAvailable to stop retries when available
+    }, []); // Empty dependency array - only run once on mount
 
     // Show loading spinner while checking backend
     if (!backendAvailable || checking) {
@@ -89,6 +131,40 @@ function BackendHealthCheck({ children }) {
                     <p>{t('pdfViewer.checkingServer')}</p>
                     {retryCount > 0 && (
                         <p className="retry-info">{t('pdfViewer.retrying', { count: retryCount })}</p>
+                    )}
+                    {showSkipOption && (
+                        <div className="skip-option">
+                            <p style={{ marginTop: '20px', color: 'var(--silver-accent)' }}>
+                                Nu se poate conecta la server. Dorești să continui oricum?
+                            </p>
+                            <button
+                                onClick={() => {
+                                    if (retryIntervalRef.current) {
+                                        clearInterval(retryIntervalRef.current);
+                                        retryIntervalRef.current = null;
+                                    }
+                                    if (abortControllerRef.current) {
+                                        abortControllerRef.current.abort();
+                                        abortControllerRef.current = null;
+                                    }
+                                    setBackendAvailable(true);
+                                    setChecking(false);
+                                }}
+                                className="skip-button"
+                                style={{
+                                    marginTop: '15px',
+                                    padding: '10px 20px',
+                                    backgroundColor: 'var(--bg-gradient-gold)',
+                                    color: 'var(--text-dark)',
+                                    border: '1px solid var(--border-gold)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                }}
+                            >
+                                Continuă oricum
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
