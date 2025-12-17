@@ -26,6 +26,134 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * CommentTooltip component - Tooltip that appears when hovering over a comment dot
+ * Automatically adjusts position to stay within viewport bounds
+ * @param {Object} props - Component props
+ * @param {Object} props.suggestion - Suggestion data
+ * @param {Function} [props.onMouseEnter] - Mouse enter handler
+ * @param {Function} [props.onMouseLeave] - Mouse leave handler
+ * @returns {JSX.Element} CommentTooltip component
+ */
+function CommentTooltip({ suggestion, onMouseEnter, onMouseLeave }) {
+    const tooltipRef = useRef(null);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
+
+    /**
+     * Adjusts tooltip position to stay within viewport bounds
+     */
+    useEffect(() => {
+        if (!tooltipRef.current) {
+            return;
+        }
+
+        const tooltip = tooltipRef.current;
+        const dot = tooltip.parentElement; // Get parent dot element
+
+        if (!dot) {
+            return;
+        }
+
+        // Ensure tooltip is visible and positioned immediately
+        tooltip.style.position = 'fixed';
+        tooltip.style.display = 'block';
+        tooltip.style.visibility = 'visible';
+        tooltip.style.opacity = '1';
+        tooltip.style.zIndex = '10000';
+
+        const adjustPosition = () => {
+            if (!tooltip || !dot) {
+                return;
+            }
+
+            const dotRect = dot.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const margin = 15; // Margin from viewport edges
+
+            // Get tooltip dimensions (force a reflow to get accurate measurements)
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const tooltipWidth = tooltipRect.width || 250; // Fallback width
+            const tooltipHeight = tooltipRect.height || 100; // Fallback height
+
+            // Calculate desired position (centered below dot)
+            let left = dotRect.left + (dotRect.width / 2) - (tooltipWidth / 2);
+            let top = dotRect.bottom + 10; // 10px below dot
+
+            // Adjust horizontal position if tooltip goes off screen
+            if (left < margin) {
+                left = margin;
+            } else if (left + tooltipWidth > viewportWidth - margin) {
+                left = viewportWidth - tooltipWidth - margin;
+            }
+
+            // Adjust vertical position if tooltip goes off screen (show above dot instead)
+            if (top + tooltipHeight > viewportHeight - margin) {
+                top = dotRect.top - tooltipHeight - 10; // 10px above dot
+            }
+
+            // Apply position using fixed positioning
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+            tooltip.style.transform = 'none';
+            tooltip.style.bottom = 'auto';
+            tooltip.style.right = 'auto';
+        };
+
+        // Adjust position immediately and after render
+        adjustPosition();
+        const rafId = requestAnimationFrame(() => {
+            adjustPosition();
+            // Second RAF to ensure layout is complete
+            requestAnimationFrame(() => {
+                adjustPosition();
+            });
+        });
+
+        // Adjust on window resize (debounced)
+        let resizeTimeout;
+        const handleResize = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(adjustPosition, 100);
+        };
+
+        // Adjust on scroll (debounced to avoid too many updates)
+        let scrollTimeout;
+        const handleScroll = () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(adjustPosition, 50);
+        };
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            cancelAnimationFrame(rafId);
+            clearTimeout(resizeTimeout);
+            clearTimeout(scrollTimeout);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [suggestion.id, isMobile]);
+
+    return (
+        <div 
+            ref={tooltipRef} 
+            className="comment-tooltip"
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+        >
+            <div className="comment-tooltip-user">{suggestion.userEmail}</div>
+            <div className="comment-tooltip-comment">{suggestion.comment}</div>
+            {suggestion.status && (
+                <div className={`comment-tooltip-status status-${suggestion.status}`}>
+                    {suggestion.status}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
  * CommentDotsOverlay component - Renders cyan dots for all comments on the PDF
  * Positions dots to avoid overlap when multiple comments are on the same line
  * @param {Object} props - Component props
@@ -40,9 +168,12 @@ if (typeof window !== 'undefined') {
 function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hoveredSuggestionId, selectedSuggestionId }) {
 
     // Group suggestions by line number
+    // Filter suggestions to only include those for the current page
+    // (suggestions array should already be filtered, but double-check for safety)
     const suggestionsByLine = {};
     suggestions.forEach((suggestion) => {
-        if (suggestion.pageNumber === pageNumber) {
+        // Ensure we only process suggestions for the current page
+        if (Number(suggestion.pageNumber) === Number(pageNumber)) {
             const lineNum = suggestion.lineNumber;
             if (!suggestionsByLine[lineNum]) {
                 suggestionsByLine[lineNum] = [];
@@ -212,7 +343,13 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
                             top: `${y}%`,
                         }}
                         onMouseEnter={() => onHover(suggestion.id)}
-                        onMouseLeave={() => {
+                        onMouseLeave={(e) => {
+                            // Check if mouse is moving to tooltip
+                            const relatedTarget = e.relatedTarget;
+                            if (relatedTarget && relatedTarget.closest('.comment-tooltip')) {
+                                // Mouse is moving to tooltip, don't clear hover
+                                return;
+                            }
                             // Only clear hover if not selected from table
                             if (!selectedSuggestionId || selectedSuggestionId !== suggestion.id) {
                                 onHover(null);
@@ -220,15 +357,16 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
                         }}
                     >
                         {isActive && (
-                            <div className="comment-tooltip">
-                                <div className="comment-tooltip-user">{suggestion.userEmail}</div>
-                                <div className="comment-tooltip-comment">{suggestion.comment}</div>
-                                {suggestion.status && (
-                                    <div className={`comment-tooltip-status status-${suggestion.status}`}>
-                                        {suggestion.status}
-                                    </div>
-                                )}
-                            </div>
+                            <CommentTooltip 
+                                suggestion={suggestion} 
+                                onMouseEnter={() => onHover(suggestion.id)}
+                                onMouseLeave={() => {
+                                    // Only clear hover if not selected from table
+                                    if (!selectedSuggestionId || selectedSuggestionId !== suggestion.id) {
+                                        onHover(null);
+                                    }
+                                }}
+                            />
                         )}
                     </div>
                 );
@@ -251,62 +389,131 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
 function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
     const { t } = useI18n();
     const [localLineNumber, setLocalLineNumber] = useState(lineNumber.toString());
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
 
     useEffect(() => {
         setLocalLineNumber(lineNumber.toString());
     }, [lineNumber]);
 
-    return (
-        <div
-            className="click-comment-box"
-            style={{
-                left: `${x}px`,
-                top: `${y}px`,
-            }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <form onSubmit={(e) => {
+    /**
+     * Disable body scroll when modal is open on mobile
+     */
+    useEffect(() => {
+        if (isMobile) {
+            // Save current scroll position
+            const scrollY = window.scrollY;
+            const scrollX = window.scrollX;
+            
+            // Get current body styles to restore later
+            const originalStyle = {
+                position: document.body.style.position,
+                top: document.body.style.top,
+                width: document.body.style.width,
+                overflow: document.body.style.overflow,
+            };
+            
+            // Disable body scroll
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.left = `-${scrollX}px`;
+            document.body.style.width = '100%';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+
+            // Prevent scroll on touch devices
+            const preventScroll = (e) => {
+                // Allow scroll only inside the modal
+                if (e.target.closest('.click-comment-box')) {
+                    return;
+                }
                 e.preventDefault();
-                onSubmit(e);
-            }}>
-                <div className="comment-box-header">
-                    <h3>{t('pdfViewer.addComment')}</h3>
-                    <button type="button" onClick={onCancel} className="comment-box-close">×</button>
-                </div>
-                <div className="form-group">
-                    <label htmlFor="click-line">{t('pdfViewer.clickCommentLineNumber')}</label>
-                    <input
-                        type="number"
-                        id="click-line"
-                        name="line"
-                        value={localLineNumber}
-                        onChange={(e) => setLocalLineNumber(e.target.value)}
-                        min="1"
-                        required
-                        disabled={submitting}
-                    />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="click-comment">Comment:</label>
-                    <textarea
-                        id="click-comment"
-                        name="comment"
-                        required
-                        disabled={submitting}
-                        rows="3"
-                        placeholder={t('pdfViewer.clickCommentPlaceholder')}
-                    />
-                </div>
-                <div className="comment-box-actions">
-                    <button type="submit" disabled={submitting} className="submit-button">
-                        {submitting ? t('pdfViewer.submitting') : t('pdfViewer.clickCommentSubmit')}
-                    </button>
-                    <button type="button" onClick={onCancel} disabled={submitting} className="cancel-button">
-                        {t('pdfViewer.clickCommentCancel')}
-                    </button>
-                </div>
-            </form>
-        </div>
+            };
+
+            // Add touch event listeners to prevent scroll
+            document.addEventListener('touchmove', preventScroll, { passive: false });
+            document.addEventListener('wheel', preventScroll, { passive: false });
+
+            // Cleanup: re-enable scroll when component unmounts
+            return () => {
+                // Remove event listeners
+                document.removeEventListener('touchmove', preventScroll);
+                document.removeEventListener('wheel', preventScroll);
+                
+                // Restore original styles
+                document.body.style.position = originalStyle.position;
+                document.body.style.top = originalStyle.top;
+                document.body.style.left = '';
+                document.body.style.width = originalStyle.width;
+                document.body.style.overflow = originalStyle.overflow;
+                document.body.classList.remove('modal-open');
+                
+                // Restore scroll position
+                window.scrollTo(scrollX, scrollY);
+            };
+        }
+    }, [isMobile]);
+
+    return (
+        <>
+            {/* Backdrop overlay for mobile */}
+            {isMobile && (
+                <div
+                    className="click-comment-box-backdrop"
+                    onClick={onCancel}
+                    aria-hidden="true"
+                />
+            )}
+            <div
+                className="click-comment-box"
+                style={isMobile ? {} : {
+                    left: `${x}px`,
+                    top: `${y}px`,
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    onSubmit(e);
+                }}>
+                    <div className="comment-box-header">
+                        <h3>{t('pdfViewer.addComment')}</h3>
+                        <button type="button" onClick={onCancel} className="comment-box-close">×</button>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="click-line">{t('pdfViewer.clickCommentLineNumber')}</label>
+                        <input
+                            type="number"
+                            id="click-line"
+                            name="line"
+                            value={localLineNumber}
+                            onChange={(e) => setLocalLineNumber(e.target.value)}
+                            min="1"
+                            required
+                            disabled={submitting}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="click-comment">Comment:</label>
+                        <textarea
+                            id="click-comment"
+                            name="comment"
+                            required
+                            disabled={submitting}
+                            rows="3"
+                            placeholder={t('pdfViewer.clickCommentPlaceholder')}
+                        />
+                    </div>
+                    <div className="comment-box-actions">
+                        <button type="submit" disabled={submitting} className="submit-button">
+                            {submitting ? t('pdfViewer.submitting') : t('pdfViewer.clickCommentSubmit')}
+                        </button>
+                        <button type="button" onClick={onCancel} disabled={submitting} className="cancel-button">
+                            {t('pdfViewer.clickCommentCancel')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </>
     );
 }
 
@@ -346,20 +553,30 @@ function PdfViewerPage() {
     const [hoveredSuggestion, setHoveredSuggestion] = useState(null); // ID of suggestion being hovered
     const [selectedSuggestionFromTable, setSelectedSuggestionFromTable] = useState(null); // ID of suggestion selected from table
     const pageContainerRef = useRef(null); // Ref for PDF page container to handle clicks
+    const swipeStartX = useRef(null); // For swipe gesture tracking
+    const swipeStartY = useRef(null); // For swipe gesture tracking
+    const [showCommentDots, setShowCommentDots] = useState(true); // Toggle for showing/hiding comment dots
 
     /**
-     * Filters suggestions to show only those for the current page (or all for admins)
-     * @returns {Array} Filtered suggestions for current page or all if admin
+     * Filters suggestions to show only those for the current page
+     * For table display: admins see all suggestions, regular users see only current page
+     * For dots overlay: everyone sees only current page suggestions
+     * @param {boolean} forDots - If true, always filter by current page (for dots overlay)
+     * @returns {Array} Filtered suggestions
      */
-    const getCurrentPageSuggestions = () => {
+    const getCurrentPageSuggestions = (forDots = false) => {
         if (!suggestions || suggestions.length === 0) {
             return [];
         }
-        // Admins see all suggestions, regular users see only current page
+        // For dots overlay, always filter by current page (all users see only current page dots)
+        if (forDots) {
+            return suggestions.filter((suggestion) => Number(suggestion.pageNumber) === Number(pageNumber));
+        }
+        // For table display: admins see all suggestions, regular users see only current page
         if (user && user.role === 'admin') {
             return suggestions;
         }
-        return suggestions.filter((suggestion) => suggestion.pageNumber === pageNumber);
+        return suggestions.filter((suggestion) => Number(suggestion.pageNumber) === Number(pageNumber));
     };
 
     /**
@@ -625,6 +842,44 @@ function PdfViewerPage() {
             alert(`Error deleting suggestions: ${error.message}`);
         } finally {
             setDeletingSuggestions(false);
+        }
+    };
+
+    /**
+     * Handles deletion of a single suggestion (only by the user who created it)
+     * @param {string} suggestionId - ID of the suggestion to delete
+     * @param {string} userEmail - Email of the user who created the suggestion
+     */
+    const handleDeleteSuggestion = async (suggestionId, userEmail) => {
+        if (!user) {
+            return;
+        }
+
+        // Check if the suggestion belongs to the current user
+        if (userEmail !== user.email) {
+            alert(t('pdfViewer.cannotDeleteOtherUserComment'));
+            return;
+        }
+
+        if (!confirm(t('pdfViewer.confirmDeleteComment'))) {
+            return;
+        }
+
+        try {
+            const result = await suggestionService.deleteSuggestion(suggestionId);
+            if (result.success) {
+                // Remove deleted suggestion from local state
+                setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+                // Clear selection if the deleted suggestion was selected
+                if (selectedSuggestionFromTable === suggestionId) {
+                    setSelectedSuggestionFromTable(null);
+                    setHoveredSuggestion(null);
+                }
+            } else {
+                alert(t('pdfViewer.deleteCommentError', { error: result.error }));
+            }
+        } catch (error) {
+            alert(t('pdfViewer.deleteCommentError', { error: error.message }));
         }
     };
 
@@ -1313,6 +1568,66 @@ function PdfViewerPage() {
     };
 
     /**
+     * Handles touch start for swipe gestures
+     * @param {TouchEvent} e - Touch event
+     */
+    const handleSwipeStart = (e) => {
+        if (window.innerWidth > 767) return; // Only on mobile
+        swipeStartX.current = e.touches[0].clientX;
+        swipeStartY.current = e.touches[0].clientY;
+    };
+
+    /**
+     * Handles touch move for swipe gestures
+     * @param {TouchEvent} e - Touch event
+     */
+    const handleSwipeMove = (e) => {
+        if (window.innerWidth > 767 || swipeStartX.current === null) return;
+        // Prevent default scrolling if we're detecting a horizontal swipe
+        const deltaX = Math.abs(e.touches[0].clientX - swipeStartX.current);
+        const deltaY = Math.abs(e.touches[0].clientY - swipeStartY.current);
+        
+        // If horizontal movement is greater than vertical, prevent scroll
+        if (deltaX > deltaY && deltaX > 10) {
+            e.preventDefault();
+        }
+    };
+
+    /**
+     * Handles touch end for swipe gestures
+     * @param {TouchEvent} e - Touch event
+     */
+    const handleSwipeEnd = (e) => {
+        if (window.innerWidth > 767 || swipeStartX.current === null || swipeStartY.current === null) {
+            swipeStartX.current = null;
+            swipeStartY.current = null;
+            return;
+        }
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const deltaX = touchEndX - swipeStartX.current;
+        const deltaY = touchEndY - swipeStartY.current;
+        const absDeltaX = Math.abs(deltaX);
+        const absDeltaY = Math.abs(deltaY);
+
+        // Only trigger swipe if horizontal movement is greater than vertical (horizontal swipe)
+        // and movement is significant enough (at least 50px)
+        if (absDeltaX > absDeltaY && absDeltaX > 50) {
+            if (deltaX > 0) {
+                // Swipe right - go to previous page
+                goToPreviousPage();
+            } else {
+                // Swipe left - go to next page
+                goToNextPage();
+            }
+        }
+
+        swipeStartX.current = null;
+        swipeStartY.current = null;
+    };
+
+    /**
      * Handles clicking on a suggestion from the table
      * Highlights the row, shows tooltip on dot, and navigates to correct page if needed
      * If clicking on an already selected suggestion, deselects it
@@ -1359,18 +1674,88 @@ function PdfViewerPage() {
 
     return (
         <div className="pdf-viewer-page">
+            {/* Page Navigation Controls - Fixed below navigation bar */}
+            {pdfUrl && (
+                <div className="pdf-page-navigation">
+                    {/* Desktop Controls */}
+                    <div className="pdf-controls pdf-controls-desktop">
+                        <button
+                            onClick={goToPreviousPage}
+                            disabled={pageNumber <= 1}
+                            className="nav-button"
+                        >
+                            {t('pdfViewer.previous')}
+                        </button>
+                        <span className="page-info">
+                            {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
+                        </span>
+                        <button
+                            onClick={goToNextPage}
+                            disabled={pageNumber >= (numPages || 1)}
+                            className="nav-button"
+                        >
+                            {t('pdfViewer.next')}
+                        </button>
+                    </div>
+
+                    {/* Mobile Controls with Arrows */}
+                    <div className="pdf-controls-mobile">
+                        <button
+                            onClick={goToPreviousPage}
+                            disabled={pageNumber <= 1}
+                            className="nav-arrow nav-arrow-left"
+                            aria-label="Previous page"
+                        >
+                            ←
+                        </button>
+                        <span className="page-info-mobile">
+                            {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
+                        </span>
+                        {selectedFile && (
+                            <label className="toggle-comment-dots-mobile-inline">
+                                <input
+                                    type="checkbox"
+                                    checked={showCommentDots}
+                                    onChange={(e) => setShowCommentDots(e.target.checked)}
+                                    aria-label={t('pdfViewer.showCommentDots')}
+                                />
+                                <span className="toggle-icon-inline">●</span>
+                            </label>
+                        )}
+                        <button
+                            onClick={goToNextPage}
+                            disabled={pageNumber >= (numPages || 1)}
+                            className="nav-arrow nav-arrow-right"
+                            aria-label="Next page"
+                        >
+                            →
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="pdf-viewer-container">
                 <div className="viewer-header">
                     <h1>{t('pdfViewer.title')}</h1>
                     {selectedFile && (
                         <div className="file-info">
                             <span className="file-name">{selectedFile}</span>
-                            <button
-                                onClick={() => navigate('/documents')}
-                                className="back-button"
-                            >
-                                {t('pdfViewer.backToDocuments')}
-                            </button>
+                            <div className="header-controls">
+                                <label className="toggle-comment-dots">
+                                    <input
+                                        type="checkbox"
+                                        checked={showCommentDots}
+                                        onChange={(e) => setShowCommentDots(e.target.checked)}
+                                    />
+                                    <span>{t('pdfViewer.showCommentDots')}</span>
+                                </label>
+                                <button
+                                    onClick={() => navigate('/documents')}
+                                    className="back-button"
+                                >
+                                    {t('pdfViewer.backToDocuments')}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1388,52 +1773,15 @@ function PdfViewerPage() {
                 {/* PDF Viewer */}
                 {pdfUrl && (
                     <div className="pdf-viewer">
-                        {/* Desktop Controls */}
-                        <div className="pdf-controls pdf-controls-desktop">
-                            <button
-                                onClick={goToPreviousPage}
-                                disabled={pageNumber <= 1}
-                                className="nav-button"
-                            >
-                                {t('pdfViewer.previous')}
-                            </button>
-                            <span className="page-info">
-                                {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
-                            </span>
-                            <button
-                                onClick={goToNextPage}
-                                disabled={pageNumber >= (numPages || 1)}
-                                className="nav-button"
-                            >
-                                {t('pdfViewer.next')}
-                            </button>
-                        </div>
-
-                        {/* Mobile Controls with Arrows */}
-                        <div className="pdf-controls-mobile">
-                            <button
-                                onClick={goToPreviousPage}
-                                disabled={pageNumber <= 1}
-                                className="nav-arrow nav-arrow-left"
-                                aria-label="Previous page"
-                            >
-                                ←
-                            </button>
-                            <span className="page-info-mobile">
-                                {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
-                            </span>
-                            <button
-                                onClick={goToNextPage}
-                                disabled={pageNumber >= (numPages || 1)}
-                                className="nav-arrow nav-arrow-right"
-                                aria-label="Next page"
-                            >
-                                →
-                            </button>
-                        </div>
-
                         <div className="pdf-display">
-                            <div className="pdf-wrapper" ref={pdfWrapperRef} onClick={handlePdfClick}>
+                            <div 
+                                className="pdf-wrapper" 
+                                ref={pdfWrapperRef} 
+                                onClick={handlePdfClick}
+                                onTouchStart={handleSwipeStart}
+                                onTouchMove={handleSwipeMove}
+                                onTouchEnd={handleSwipeEnd}
+                            >
                                 {pdfUrl && (
                                     <>
                                         <Document
@@ -1519,9 +1867,9 @@ function PdfViewerPage() {
                                     </div>
                                 )}
                                 {/* Comment Dots Overlay */}
-                                {selectedFile && (
+                                {selectedFile && showCommentDots && (
                                     <CommentDotsOverlay
-                                        suggestions={getCurrentPageSuggestions()}
+                                        suggestions={getCurrentPageSuggestions(true)}
                                         textLines={textLines}
                                         pageNumber={pageNumber}
                                         onHover={setHoveredSuggestion}
@@ -1666,6 +2014,7 @@ function PdfViewerPage() {
                                         <th>{t('pdfViewer.user')}</th>
                                         {user && user.role === 'admin' && <th>{t('pdfViewer.status')}</th>}
                                         <th>{t('pdfViewer.date')}</th>
+                                        <th>{t('pdfViewer.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1718,6 +2067,19 @@ function PdfViewerPage() {
                                                 )}
                                                 <td data-label="Date">
                                                     {new Date(suggestion.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td data-label={t('pdfViewer.actions')} onClick={(e) => e.stopPropagation()}>
+                                                    {user && suggestion.userEmail === user.email && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteSuggestion(suggestion.id, suggestion.userEmail)}
+                                                            className="delete-comment-button"
+                                                            title={t('pdfViewer.deleteComment')}
+                                                            aria-label={t('pdfViewer.deleteComment')}
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}

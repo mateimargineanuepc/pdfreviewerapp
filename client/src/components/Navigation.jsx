@@ -1,6 +1,6 @@
 'use strict';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
@@ -17,6 +17,11 @@ function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [navVisible, setNavVisible] = useState(true);
+    const navRef = useRef(null);
+    const touchStartY = useRef(null);
+    const lastScrollY = useRef(0);
+    const hideTimerRef = useRef(null);
 
     /**
      * Handles logout
@@ -50,8 +55,112 @@ function Navigation() {
         return location.pathname === path;
     };
 
+    /**
+     * Handles touch start for swipe down gesture
+     * @param {TouchEvent} e - Touch event
+     */
+    const handleTouchStart = (e) => {
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    /**
+     * Handles touch move for swipe down gesture
+     * @param {TouchEvent} e - Touch event
+     */
+    const handleTouchMove = (e) => {
+        if (touchStartY.current === null) return;
+        
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchY - touchStartY.current;
+        
+        // Swipe down from top (deltaY > 0 and starting near top of screen)
+        if (deltaY > 50 && touchStartY.current < 100 && window.innerWidth <= 767) {
+            setNavVisible(true);
+            // Restart timer when nav becomes visible via swipe
+            clearHideTimer();
+            hideTimerRef.current = setTimeout(() => {
+                setNavVisible(false);
+            }, 4000);
+        }
+    };
+
+    /**
+     * Handles touch end
+     */
+    const handleTouchEnd = () => {
+        touchStartY.current = null;
+    };
+
+    /**
+     * Clears the hide timer
+     */
+    const clearHideTimer = () => {
+        if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = null;
+        }
+    };
+
+    /**
+     * Starts the hide timer (10 seconds)
+     */
+    const startHideTimer = () => {
+        clearHideTimer();
+        if (window.innerWidth <= 767) {
+            hideTimerRef.current = setTimeout(() => {
+                setNavVisible(false);
+            }, 4000); // 4 seconds
+        }
+    };
+
+    /**
+     * Handles scroll to hide/show navigation on mobile
+     */
+    useEffect(() => {
+        if (window.innerWidth > 767) {
+            setNavVisible(true);
+            return;
+        }
+
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            
+            // Show nav when scrolling up or at top, and restart timer
+            if (currentScrollY < lastScrollY.current || currentScrollY < 10) {
+                if (!navVisible) {
+                    setNavVisible(true);
+                }
+                startHideTimer(); // Restart timer when nav becomes visible
+            } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+                // Don't hide immediately on scroll down, let timer handle it
+            }
+            
+            lastScrollY.current = currentScrollY;
+        };
+
+        // Start timer when nav becomes visible initially
+        if (navVisible) {
+            startHideTimer();
+        }
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('touchstart', handleTouchStart, { passive: true });
+        window.addEventListener('touchmove', handleTouchMove, { passive: true });
+        window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        return () => {
+            clearHideTimer();
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [navVisible]);
+
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
+    
     return (
-        <nav className="main-navigation">
+        <nav className={`main-navigation ${!navVisible && isMobile ? 'nav-hidden' : ''}`} ref={navRef}>
             <div className="nav-container">
                 {/* Logo/Brand */}
                 <Link to="/" className="nav-brand" onClick={closeMenu}>

@@ -157,6 +157,12 @@
         "clickCommentSubmit": "Adaugă Comentariu",
         "clickCommentCancel": "Anulează",
         "confirmDelete": "Ești sigur că vrei să ștergi {{count}} sugestie/sugestii?",
+        "actions": "Acțiuni",
+        "deleteComment": "Șterge comentariu",
+        "confirmDeleteComment": "Ești sigur că vrei să ștergi acest comentariu? Această acțiune nu poate fi anulată.",
+        "cannotDeleteOtherUserComment": "Nu poți șterge comentariile altor utilizatori.",
+        "deleteCommentError": "Eroare la ștergerea comentariului: {{error}}",
+        "showCommentDots": "Afișează punctele de comentariu",
         "connectingToServer": "Conectare la server...",
         "checkingServer": "Te rugăm să aștepți în timp ce verificăm dacă serverul este disponibil.",
         "retrying": "Se reîncearcă... (Încercare {{count}})"
