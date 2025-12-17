@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import './RegisterPage.css';
 
 /**
@@ -24,6 +25,7 @@ function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const { register } = useAuth();
+    const { t } = useI18n();
     const navigate = useNavigate();
 
     /**
@@ -41,33 +43,33 @@ function RegisterPage() {
 
         // Validate email
         if (!email || email.trim().length === 0) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('registration.emailRequired');
         } else {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
-                newErrors.email = 'Please enter a valid email address';
+                newErrors.email = t('registration.emailInvalid');
             }
         }
 
         // Validate password
         if (!password || password.length === 0) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('registration.passwordRequired');
         } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters long';
+            newErrors.password = t('registration.passwordTooShort');
         }
 
         // Validate confirm password
         if (!confirmPassword || confirmPassword.length === 0) {
-            newErrors.confirmPassword = 'Please confirm your password';
+            newErrors.confirmPassword = t('registration.confirmPasswordRequired');
         } else if (password !== confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = t('registration.passwordsDoNotMatch');
         }
 
         // Validate registration details
         if (!registrationDetails || registrationDetails.trim().length === 0) {
-            newErrors.registrationDetails = 'Registration details are required';
+            newErrors.registrationDetails = t('registration.registrationDetailsRequired');
         } else if (registrationDetails.trim().length < 10) {
-            newErrors.registrationDetails = 'Please provide more details (at least 10 characters)';
+            newErrors.registrationDetails = t('registration.registrationDetailsTooShort');
         }
 
         return newErrors;
@@ -113,7 +115,7 @@ function RegisterPage() {
             }
         } else {
             // Handle backend validation errors
-            const errorMessage = result.error || 'Registration failed. Please try again.';
+            const errorMessage = result.error || t('registration.registrationFailed');
             
             // Try to parse specific field errors from backend
             if (errorMessage.includes('email') || errorMessage.includes('Email')) {
@@ -160,13 +162,13 @@ function RegisterPage() {
     return (
         <div className="register-page">
             <div className="register-container">
-                <h1>PDF Review Application</h1>
-                <h2>Create Account</h2>
+                <h1>{t('app.name')}</h1>
+                <h2>{t('registration.title')}</h2>
                 <form onSubmit={handleSubmit} className="register-form">
                     {errors.general && <div className="error-message">{errors.general}</div>}
                     <div className="form-group">
                         <label htmlFor="email">
-                            Email <span className="required">*</span>:
+                            {t('auth.email')} <span className="required">{t('registration.required')}</span>:
                         </label>
                         <input
                             type="text"
@@ -181,7 +183,7 @@ function RegisterPage() {
                             onBlur={() => handleBlur('email')}
                             required
                             disabled={loading}
-                            placeholder="Enter your email"
+                            placeholder={t('auth.email')}
                             autoComplete="email"
                             className={errors.email ? 'error' : ''}
                         />
@@ -189,7 +191,7 @@ function RegisterPage() {
                     </div>
                     <div className="form-group">
                         <label htmlFor="password">
-                            Password <span className="required">*</span>:
+                            {t('auth.password')} <span className="required">{t('registration.required')}</span>:
                         </label>
                         <input
                             type="password"
@@ -208,7 +210,7 @@ function RegisterPage() {
                             onBlur={() => handleBlur('password')}
                             required
                             disabled={loading}
-                            placeholder="Enter your password (min 6 characters)"
+                            placeholder={t('auth.password')}
                             autoComplete="new-password"
                             minLength={6}
                             className={errors.password ? 'error' : ''}
@@ -217,7 +219,7 @@ function RegisterPage() {
                     </div>
                     <div className="form-group">
                         <label htmlFor="confirmPassword">
-                            Confirm Password <span className="required">*</span>:
+                            {t('auth.confirmPassword')} <span className="required">{t('registration.required')}</span>:
                         </label>
                         <input
                             type="password"
@@ -232,7 +234,7 @@ function RegisterPage() {
                             onBlur={() => handleBlur('confirmPassword')}
                             required
                             disabled={loading}
-                            placeholder="Confirm your password"
+                            placeholder={t('auth.confirmPassword')}
                             autoComplete="new-password"
                             minLength={6}
                             className={errors.confirmPassword ? 'error' : ''}
@@ -241,7 +243,7 @@ function RegisterPage() {
                     </div>
                     <div className="form-group">
                         <label htmlFor="registrationDetails">
-                            Registration Details <span className="required">*</span>:
+                            {t('registration.registrationDetails')} <span className="required">{t('registration.required')}</span>:
                         </label>
                         <textarea
                             id="registrationDetails"
@@ -255,7 +257,7 @@ function RegisterPage() {
                             onBlur={() => handleBlur('registrationDetails')}
                             required
                             disabled={loading}
-                            placeholder="Please tell us: How did you hear about this website? What is your real name? Any other relevant information that would help us approve your registration."
+                            placeholder={t('registration.registrationDetailsPlaceholder')}
                             rows="5"
                             minLength={10}
                             className={`registration-details-textarea ${errors.registrationDetails ? 'error' : ''}`}
@@ -264,18 +266,16 @@ function RegisterPage() {
                             <div className="field-error">{errors.registrationDetails}</div>
                         )}
                         <small className="form-hint">
-                            Please provide details about how you found this website, your real name, and any other
-                            information that would help us approve your registration.
+                            {t('registration.registrationDetailsHint')}
                         </small>
                     </div>
                     {success && (
                         <div className="success-message">
                             <p>
-                                <strong>Registration request submitted successfully!</strong>
+                                <strong>{t('registration.successTitle')}</strong>
                             </p>
                             <p>
-                                Your account is pending admin approval. You will be able to log in once an administrator
-                                approves your registration.
+                                {t('registration.successMessage')}
                             </p>
                         </div>
                     )}
@@ -284,11 +284,11 @@ function RegisterPage() {
                         disabled={loading || success || Object.values(errors).some((error) => error !== '')} 
                         className="submit-button"
                     >
-                        {loading ? 'Submitting Request...' : 'Submit Registration Request'}
+                        {loading ? t('auth.submittingRequest') : t('auth.registerButton')}
                     </button>
                     <div className="login-link">
                         <p>
-                            Already have an account? <Link to="/login">Login here</Link>
+                            {t('auth.hasAccount')} <Link to="/login">{t('auth.loginHere')}</Link>
                         </p>
                     </div>
                 </form>

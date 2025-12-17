@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import './Navigation.css';
 
 /**
@@ -12,6 +13,7 @@ import './Navigation.css';
  */
 function Navigation() {
     const { user, logout } = useAuth();
+    const { t } = useI18n();
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -62,21 +64,21 @@ function Navigation() {
                         to="/documents"
                         className={`nav-link ${isActiveRoute('/documents') ? 'active' : ''}`}
                     >
-                        Documents
+                        {t('navigation.documents')}
                     </Link>
                     {user && user.role === 'admin' && (
                         <Link
                             to="/admin"
                             className={`nav-link ${isActiveRoute('/admin') ? 'active' : ''}`}
                         >
-                            Admin Dashboard
+                            {t('navigation.adminDashboard')}
                         </Link>
                     )}
                     {user && (
                         <div className="nav-user-menu">
                             <span className="nav-user-email">{user.email}</span>
                             <button onClick={handleLogout} className="nav-logout-button">
-                                Logout
+                                {t('navigation.logout')}
                             </button>
                         </div>
                     )}
@@ -101,7 +103,7 @@ function Navigation() {
                     className={`nav-link ${isActiveRoute('/documents') ? 'active' : ''}`}
                     onClick={closeMenu}
                 >
-                    Documents
+                    {t('navigation.documents')}
                 </Link>
                 {user && user.role === 'admin' && (
                     <Link
@@ -109,15 +111,15 @@ function Navigation() {
                         className={`nav-link ${isActiveRoute('/admin') ? 'active' : ''}`}
                         onClick={closeMenu}
                     >
-                        Admin Dashboard
+                        {t('navigation.adminDashboard')}
                     </Link>
                 )}
                 {user && (
                     <div className="nav-user-info">
                         <div className="nav-user-email">{user.email}</div>
-                        <div className="nav-user-role">Role: {user.role}</div>
+                        <div className="nav-user-role">{t('auth.role')}: {user.role}</div>
                         <button onClick={handleLogout} className="nav-logout-button">
-                            Logout
+                            {t('navigation.logout')}
                         </button>
                     </div>
                 )}

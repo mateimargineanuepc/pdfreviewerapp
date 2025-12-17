@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { I18nProvider } from './context/I18nContext';
 import BackendHealthCheck from './components/BackendHealthCheck';
 import Navigation from './components/Navigation';
 import LoginPage from './pages/LoginPage';
@@ -52,35 +53,37 @@ function App() {
     }, []);
 
     return (
-        <BackendHealthCheck>
-            <AuthProvider>
-                <BrowserRouter>
-                    <Routes>
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/register" element={<RegisterPage />} />
-                        <Route
-                            path="/*"
-                            element={
-                                <ProtectedRoute>
-                                    <div className="app-layout">
-                                        <Navigation />
-                                        <main className="app-main">
-                                            <Routes>
-                                                <Route path="/" element={<HomePage />} />
-                                                <Route path="/documents" element={<DocumentSelectionPage />} />
-                                                <Route path="/viewer" element={<PdfViewerPage />} />
-                                                <Route path="/admin" element={<AdminDashboardPage />} />
-                                                <Route path="*" element={<Navigate to="/" replace />} />
-                                            </Routes>
-                                        </main>
-                                    </div>
-                                </ProtectedRoute>
-                            }
-                        />
-                    </Routes>
-                </BrowserRouter>
-            </AuthProvider>
-        </BackendHealthCheck>
+        <I18nProvider>
+            <BackendHealthCheck>
+                <AuthProvider>
+                    <BrowserRouter>
+                        <Routes>
+                            <Route path="/login" element={<LoginPage />} />
+                            <Route path="/register" element={<RegisterPage />} />
+                            <Route
+                                path="/*"
+                                element={
+                                    <ProtectedRoute>
+                                        <div className="app-layout">
+                                            <Navigation />
+                                            <main className="app-main">
+                                                <Routes>
+                                                    <Route path="/" element={<HomePage />} />
+                                                    <Route path="/documents" element={<DocumentSelectionPage />} />
+                                                    <Route path="/viewer" element={<PdfViewerPage />} />
+                                                    <Route path="/admin" element={<AdminDashboardPage />} />
+                                                    <Route path="*" element={<Navigate to="/" replace />} />
+                                                </Routes>
+                                            </main>
+                                        </div>
+                                    </ProtectedRoute>
+                                }
+                            />
+                        </Routes>
+                    </BrowserRouter>
+                </AuthProvider>
+            </BackendHealthCheck>
+        </I18nProvider>
     );
 }
 

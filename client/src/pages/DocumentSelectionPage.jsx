@@ -7,6 +7,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { useOrientation } from '../hooks/useOrientation';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import FileUpload from '../components/FileUpload';
 import fileService from '../api-services/fileService';
 import progressService from '../api-services/progressService';
@@ -43,6 +44,7 @@ function DocumentSelectionPage() {
     const navigate = useNavigate();
     const orientation = useOrientation();
     const { user } = useAuth();
+    const { t } = useI18n();
 
     /**
      * Loads list of available PDF files
@@ -200,7 +202,7 @@ function DocumentSelectionPage() {
      * @param {string[]} filenames - Array of filenames to delete
      */
     const handleDeleteFiles = async (filenames) => {
-        if (!window.confirm(`Are you sure you want to delete ${filenames.length} file(s)? This action cannot be undone.`)) {
+        if (!window.confirm(t('documents.confirmDelete', { count: filenames.length }))) {
             return;
         }
 
@@ -324,7 +326,7 @@ function DocumentSelectionPage() {
     return (
         <div className="document-selection-page">
             <div className="document-selection-container">
-                <h1>Select a Document</h1>
+                <h1>{t('documents.title')}</h1>
 
                 {/* File Upload (Admin Only) */}
                 {user && user.role === 'admin' && (
@@ -344,8 +346,8 @@ function DocumentSelectionPage() {
                                 />
                                 <span>
                                     {selectedFiles.size === filteredFiles.length && filteredFiles.length > 0
-                                        ? 'Deselect All'
-                                        : 'Select All'}
+                                        ? t('documents.deselectAll')
+                                        : t('documents.selectAll')}
                                 </span>
                             </label>
                             {selectedFiles.size > 0 && (
@@ -354,7 +356,7 @@ function DocumentSelectionPage() {
                                     disabled={deleting}
                                     className="delete-selected-button"
                                 >
-                                    {deleting ? 'Deleting...' : `Delete Selected (${selectedFiles.size})`}
+                                    {deleting ? t('documents.deleting') : t('documents.deleteSelected')}
                                 </button>
                             )}
                         </div>
@@ -365,7 +367,7 @@ function DocumentSelectionPage() {
                 <div className="search-bar">
                     <input
                         type="text"
-                        placeholder="Search documents by name..."
+                        placeholder={t('documents.searchPlaceholder')}
                         value={searchQuery}
                         onChange={handleSearchChange}
                         className="search-input"
@@ -387,13 +389,13 @@ function DocumentSelectionPage() {
                 {!loading && (
                     <div className="results-count">
                         {filteredFiles.length === 0
-                            ? 'No documents found'
-                            : `Showing ${filteredFiles.length} of ${files.length} document${files.length !== 1 ? 's' : ''}`}
+                            ? t('documents.noResults')
+                            : t('documents.resultsCount', { count: filteredFiles.length, plural: filteredFiles.length !== 1 ? 'e' : '' })}
                     </div>
                 )}
 
                 {/* Loading State */}
-                {loading && <div className="loading">Loading documents...</div>}
+                {loading && <div className="loading">{t('documents.loading')}</div>}
 
                 {/* Documents Grid */}
                 {!loading && filteredFiles.length > 0 && (
@@ -439,9 +441,9 @@ function DocumentSelectionPage() {
                                     {previewUrls[file.name] ? (
                                         <Document
                                             file={previewUrls[file.name]}
-                                            loading={<div className="preview-loading">Loading</div>}
+                                            loading={<div className="preview-loading">{t('common.loading')}</div>}
                                             error={
-                                                <div className="preview-error">Preview unavailable</div>
+                                                <div className="preview-error">{t('documents.previewUnavailable')}</div>
                                             }
                                         >
                                             <Page
@@ -453,7 +455,7 @@ function DocumentSelectionPage() {
                                             />
                                         </Document>
                                     ) : (
-                                        <div className="preview-loading">Loading</div>
+                                        <div className="preview-loading">{t('common.loading')}</div>
                                     )}
                                 </div>
                                 <div
@@ -478,10 +480,7 @@ function DocumentSelectionPage() {
                                                 />
                                             </div>
                                             <div className="progress-text">
-                                                {progressData[file.name].percentage}% ({progressData[file.name].completedCount}
-                                                {progressData[file.name].totalPages > 0 
-                                                    ? `/${progressData[file.name].totalPages}` 
-                                                    : ''})
+                                                {t('documents.pagesCompleted', { completed: progressData[file.name].completedCount, total: progressData[file.name].totalPages })}
                                             </div>
                                         </div>
                                     )}
@@ -499,9 +498,9 @@ function DocumentSelectionPage() {
                 {/* No Results */}
                 {!loading && filteredFiles.length === 0 && searchQuery && (
                     <div className="no-results">
-                        <p>No documents found matching "{searchQuery}"</p>
+                        <p>{t('documents.noResults')}</p>
                         <button onClick={() => setSearchQuery('')} className="clear-search-link">
-                            Clear search
+                            {t('documents.clearSearch')}
                         </button>
                     </div>
                 )}

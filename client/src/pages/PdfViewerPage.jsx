@@ -6,6 +6,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import fileService from '../api-services/fileService';
 import suggestionService from '../api-services/suggestionService';
 import progressService from '../api-services/progressService';
@@ -54,9 +55,52 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
     const dotPositions = useMemo(() => {
         const positions = [];
         const DOT_SIZE = 12; // Size of each dot in pixels
-        const DOT_SPACING = 16; // Spacing between dots
+        const DOT_SPACING = 8; // Spacing between dots for manual comments (reduced from 16 to 8)
+        const MIN_DISTANCE = 1.5; // Minimum distance between dots in percentage (to avoid overlap)
         const ROW_HEIGHT = 20; // Height of each row of dots
         const LINE_NUMBER_WIDTH = 60; // Width of line number area
+
+        /**
+         * Checks if a position overlaps with existing positions
+         * @param {number} x - X position in percentage
+         * @param {number} y - Y position in percentage
+         * @param {Array} existingPositions - Array of existing positions
+         * @returns {boolean} True if position overlaps
+         */
+        const isOverlapping = (x, y, existingPositions) => {
+            return existingPositions.some((pos) => {
+                const distanceX = Math.abs(pos.x - x);
+                const distanceY = Math.abs(pos.y - y);
+                // Check if dots are too close (within MIN_DISTANCE percentage)
+                return distanceX < MIN_DISTANCE && distanceY < MIN_DISTANCE;
+            });
+        };
+
+        /**
+         * Finds the next available position for a dot
+         * @param {number} startX - Starting X position
+         * @param {number} y - Y position
+         * @param {number} maxX - Maximum X position
+         * @param {Array} existingPositions - Array of existing positions
+         * @param {number} spacing - Spacing between dots
+         * @returns {number} Available X position
+         */
+        const findAvailablePosition = (startX, y, maxX, existingPositions, spacing) => {
+            let currentX = startX;
+            let attempts = 0;
+            const maxAttempts = 100; // Prevent infinite loop
+
+            while (isOverlapping(currentX, y, existingPositions) && attempts < maxAttempts) {
+                currentX += spacing;
+                if (currentX > maxX) {
+                    // If we've reached the edge, try next row
+                    return null; // Will be handled by row logic
+                }
+                attempts++;
+            }
+
+            return currentX <= maxX ? currentX : null;
+        };
 
         Object.keys(suggestionsByLine).forEach((lineNumStr) => {
             const lineNum = parseInt(lineNumStr, 10);
@@ -64,15 +108,16 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
             const lineData = textLines.find((l) => l.lineNumber === lineNum);
 
             if (!lineData) {
-                // If no line data, use click coordinates if available
-                lineSuggestions.forEach((suggestion, index) => {
+                // If no line data, use click coordinates if available (exact position, no adjustment)
+                lineSuggestions.forEach((suggestion) => {
                     if (suggestion.clickX !== null && suggestion.clickX !== undefined) {
+                        // Use exact click coordinates - no overlap checking for click-based comments
                         positions.push({
                             suggestion,
                             x: suggestion.clickX * 100, // Convert to percentage
                             y: suggestion.clickY * 100,
                             row: 0,
-                            col: index,
+                            col: 0,
                         });
                     }
                 });
@@ -82,39 +127,68 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
             // Calculate Y position from line data
             const yPercent = lineData.relativeY * 100;
 
-            // Position dots starting from line number area, going right
-            // If multiple dots, arrange them in rows
-            lineSuggestions.forEach((suggestion, index) => {
-                let xPercent;
-                let row = 0;
-                let col = index;
+            // Separate click-based and form-based suggestions
+            const clickBasedSuggestions = lineSuggestions.filter(
+                (s) => s.clickX !== null && s.clickX !== undefined
+            );
+            const formBasedSuggestions = lineSuggestions.filter(
+                (s) => s.clickX === null || s.clickX === undefined
+            );
 
-                if (suggestion.clickX !== null && suggestion.clickX !== undefined) {
-                    // Use click coordinates if available
-                    xPercent = suggestion.clickX * 100;
-                } else {
-                    // Calculate position based on index
-                    // Start from line number area (around 8% from left, after line numbers)
-                    const startX = 8;
-                    const maxX = 95; // Don't go too close to edge
-                    const availableWidth = maxX - startX;
-                    // Calculate how many dots fit per row (based on spacing)
-                    const dotsPerRow = Math.max(1, Math.floor(availableWidth / (DOT_SPACING / 2)));
-                    row = Math.floor(index / dotsPerRow);
-                    col = index % dotsPerRow;
-                    xPercent = startX + col * (DOT_SPACING / 2);
-                }
-
-                // Adjust Y for multiple rows
-                const adjustedY = yPercent + row * (ROW_HEIGHT / 2);
-
+            // FIRST: Process all click-based suggestions (exact positions, no adjustment)
+            clickBasedSuggestions.forEach((suggestion) => {
+                const xPercent = suggestion.clickX * 100;
+                const clickYPercent = suggestion.clickY * 100;
                 positions.push({
                     suggestion,
                     x: xPercent,
+                    y: clickYPercent, // Use click Y, not line Y
+                    row: 0,
+                    col: 0,
+                });
+            });
+
+            // SECOND: Process all form-based suggestions (auto-positioned, avoiding overlaps)
+            // Start from line number area (around 8% from left, after line numbers)
+            const startX = 8;
+            const maxX = 95; // Don't go too close to edge
+            const availableWidth = maxX - startX;
+            
+            // Calculate how many dots fit per row (based on reduced spacing)
+            const dotsPerRow = Math.max(1, Math.floor(availableWidth / DOT_SPACING));
+            
+            formBasedSuggestions.forEach((suggestion, index) => {
+                let row = Math.floor(index / dotsPerRow);
+                const col = index % dotsPerRow;
+                
+                // Calculate initial position based on index
+                let initialX = startX + col * DOT_SPACING;
+                
+                // Check for overlap and find available position
+                // Check against ALL existing positions (both click-based and form-based)
+                // This ensures form-based dots don't overlap any existing dots
+                let adjustedY = yPercent + row * (ROW_HEIGHT / 2);
+                let availableX = findAvailablePosition(initialX, adjustedY, maxX, positions, DOT_SPACING);
+                
+                // If no space in current row, try next row
+                if (availableX === null) {
+                    row++;
+                    adjustedY = yPercent + row * (ROW_HEIGHT / 2);
+                    availableX = findAvailablePosition(startX, adjustedY, maxX, positions, DOT_SPACING);
+                    if (availableX === null) {
+                        availableX = startX; // Fallback
+                    }
+                }
+
+                const position = {
+                    suggestion,
+                    x: availableX,
                     y: adjustedY,
                     row,
                     col,
-                });
+                };
+
+                positions.push(position);
             });
         });
 
@@ -175,6 +249,7 @@ function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hover
  * @returns {JSX.Element} ClickCommentBox component
  */
 function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
+    const { t } = useI18n();
     const [localLineNumber, setLocalLineNumber] = useState(lineNumber.toString());
 
     useEffect(() => {
@@ -195,11 +270,11 @@ function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
                 onSubmit(e);
             }}>
                 <div className="comment-box-header">
-                    <h3>Add Comment</h3>
+                    <h3>{t('pdfViewer.addComment')}</h3>
                     <button type="button" onClick={onCancel} className="comment-box-close">×</button>
                 </div>
                 <div className="form-group">
-                    <label htmlFor="click-line">Line Number:</label>
+                    <label htmlFor="click-line">{t('pdfViewer.clickCommentLineNumber')}</label>
                     <input
                         type="number"
                         id="click-line"
@@ -219,15 +294,15 @@ function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
                         required
                         disabled={submitting}
                         rows="3"
-                        placeholder="Enter your comment..."
+                        placeholder={t('pdfViewer.clickCommentPlaceholder')}
                     />
                 </div>
                 <div className="comment-box-actions">
                     <button type="submit" disabled={submitting} className="submit-button">
-                        {submitting ? 'Submitting...' : 'Add Comment'}
+                        {submitting ? t('pdfViewer.submitting') : t('pdfViewer.clickCommentSubmit')}
                     </button>
                     <button type="button" onClick={onCancel} disabled={submitting} className="cancel-button">
-                        Cancel
+                        {t('pdfViewer.clickCommentCancel')}
                     </button>
                 </div>
             </form>
@@ -241,6 +316,7 @@ function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
  */
 function PdfViewerPage() {
     const { user } = useAuth();
+    const { t } = useI18n();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [selectedFile, setSelectedFile] = useState(null);
@@ -529,7 +605,7 @@ function PdfViewerPage() {
             return;
         }
 
-        if (!confirm(`Are you sure you want to delete ${selectedSuggestions.size} suggestion(s)?`)) {
+        if (!confirm(t('pdfViewer.confirmDelete', { count: selectedSuggestions.size }))) {
             return;
         }
 
@@ -1133,24 +1209,37 @@ function PdfViewerPage() {
 
         const pageRect = canvas.getBoundingClientRect();
         const wrapperRect = pdfWrapperRef.current.getBoundingClientRect();
+        
+        // Calculate click position relative to wrapper (for comment box display)
         const clickX = e.clientX - wrapperRect.left;
         const clickY = e.clientY - wrapperRect.top;
 
         // Calculate relative positions within the canvas (0-1 range)
+        // This is what we store and use for positioning dots
         const canvasX = e.clientX - pageRect.left;
         const canvasY = e.clientY - pageRect.top;
         const relativeX = canvasX / pageRect.width;
         const relativeY = canvasY / pageRect.height;
+        
+        // But for overlay positioning, we need coordinates relative to wrapper
+        // Calculate canvas position within wrapper
+        const canvasOffsetX = pageRect.left - wrapperRect.left;
+        const canvasOffsetY = pageRect.top - wrapperRect.top;
+        
+        // Convert canvas-relative coordinates to wrapper-relative coordinates
+        const wrapperRelativeX = (canvasOffsetX + canvasX) / wrapperRect.width;
+        const wrapperRelativeY = (canvasOffsetY + canvasY) / wrapperRect.height;
 
-        // Find closest line number
+        // Find closest line number (use canvas-relative Y for line matching)
         const closestLine = findClosestLineNumber(relativeY);
 
         // Show comment box at click position (relative to wrapper)
+        // Store wrapper-relative coordinates for overlay positioning
         setClickCommentBox({
             x: clickX,
             y: clickY,
-            relativeX: relativeX,
-            relativeY: relativeY,
+            relativeX: wrapperRelativeX, // Use wrapper-relative for overlay
+            relativeY: wrapperRelativeY, // Use wrapper-relative for overlay
             lineNumber: closestLine || 1,
         });
     }, [selectedFile, user, findClosestLineNumber]);
@@ -1226,9 +1315,17 @@ function PdfViewerPage() {
     /**
      * Handles clicking on a suggestion from the table
      * Highlights the row, shows tooltip on dot, and navigates to correct page if needed
+     * If clicking on an already selected suggestion, deselects it
      * @param {Object} suggestion - The suggestion object
      */
     const handleSuggestionClick = useCallback((suggestion) => {
+        // If clicking on the same suggestion that's already selected, deselect it
+        if (selectedSuggestionFromTable === suggestion.id) {
+            setSelectedSuggestionFromTable(null);
+            setHoveredSuggestion(null);
+            return;
+        }
+
         // If suggestion is on a different page, navigate to it
         if (suggestion.pageNumber !== pageNumber) {
             setPageNumber(suggestion.pageNumber);
@@ -1245,7 +1342,7 @@ function PdfViewerPage() {
                 dotElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
             }
         }, 300);
-    }, [pageNumber]);
+    }, [pageNumber, selectedSuggestionFromTable]);
 
     /**
      * Memoized PDF.js options to prevent unnecessary reloads
@@ -1264,7 +1361,7 @@ function PdfViewerPage() {
         <div className="pdf-viewer-page">
             <div className="pdf-viewer-container">
                 <div className="viewer-header">
-                    <h1>PDF Viewer</h1>
+                    <h1>{t('pdfViewer.title')}</h1>
                     {selectedFile && (
                         <div className="file-info">
                             <span className="file-name">{selectedFile}</span>
@@ -1272,7 +1369,7 @@ function PdfViewerPage() {
                                 onClick={() => navigate('/documents')}
                                 className="back-button"
                             >
-                                ← Back to Documents
+                                {t('pdfViewer.backToDocuments')}
                             </button>
                         </div>
                     )}
@@ -1284,7 +1381,7 @@ function PdfViewerPage() {
                 {loading && !pdfUrl && (
                     <div className="pdf-loading-container">
                         <div className="pdf-loading-spinner"></div>
-                        <p className="pdf-loading-text">Loading PDF...</p>
+                        <p className="pdf-loading-text">{t('pdfViewer.loading')}</p>
                     </div>
                 )}
 
@@ -1298,17 +1395,17 @@ function PdfViewerPage() {
                                 disabled={pageNumber <= 1}
                                 className="nav-button"
                             >
-                                Previous
+                                {t('pdfViewer.previous')}
                             </button>
                             <span className="page-info">
-                                Page {pageNumber} of {numPages || '...'}
+                                {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
                             </span>
                             <button
                                 onClick={goToNextPage}
                                 disabled={pageNumber >= (numPages || 1)}
                                 className="nav-button"
                             >
-                                Next
+                                {t('pdfViewer.next')}
                             </button>
                         </div>
 
@@ -1323,7 +1420,7 @@ function PdfViewerPage() {
                                 ←
                             </button>
                             <span className="page-info-mobile">
-                                Page {pageNumber} of {numPages || '...'}
+                                {t('pdfViewer.page')} {pageNumber} {t('pdfViewer.of')} {numPages || '...'}
                             </span>
                             <button
                                 onClick={goToNextPage}
@@ -1344,17 +1441,17 @@ function PdfViewerPage() {
                                             onLoadSuccess={onDocumentLoadSuccess}
                                             onLoadError={(error) => {
                                                 console.error('PDF load error:', error);
-                                                setError('Failed to load PDF. Please try again.');
+                                                setError(t('pdfViewer.loadingError'));
                                             }}
                                             loading={
                                                 <div className="loading">
                                                     <div className="loading-spinner"></div>
-                                                    Loading PDF...
+                                                    {t('pdfViewer.loading')}
                                                 </div>
                                             }
                                             error={
                                                 <div className="error-message">
-                                                    Failed to load PDF. Please try again.
+                                                    {t('pdfViewer.loadingError')}
                                                 </div>
                                             }
                                             options={pdfOptions}
@@ -1368,7 +1465,7 @@ function PdfViewerPage() {
                                                 onLoadSuccess={onPageLoadSuccess}
                                                 onLoadError={(error) => {
                                                     console.error('Page load error:', error);
-                                                    setError('Failed to load PDF page. Please try again.');
+                                                    setError(t('pdfViewer.loadingError'));
                                                 }}
                                             />
                                         </Document>
@@ -1376,7 +1473,7 @@ function PdfViewerPage() {
                                         <div className="row-numbers-overlay">
                                             {extractingRows ? (
                                                 <div className="row-numbers-loading">
-                                                    Extracting row numbers...
+                                                    {t('pdfViewer.extractingRows')}
                                                 </div>
                                             ) : textLines.length > 0 ? (
                                                 textLines.map((line) => (
@@ -1392,7 +1489,7 @@ function PdfViewerPage() {
                                                 ))
                                             ) : (
                                                 <div className="row-numbers-empty">
-                                                    No rows found
+                                                    {t('pdfViewer.noRowsFound')}
                                                 </div>
                                             )}
                                         </div>
@@ -1456,14 +1553,14 @@ function PdfViewerPage() {
                             onClick={handleTogglePageCompletion}
                             disabled={togglingPageCompletion}
                             className={`page-done-button ${pageCompleted ? 'completed' : ''}`}
-                            title={pageCompleted ? 'Click to remove done status for this page' : 'Click to mark page as complete'}
+                            title={pageCompleted ? t('pdfViewer.pageDoneExplanationCompleted') : t('pdfViewer.pageDoneExplanation')}
                         >
-                            {togglingPageCompletion ? 'Updating...' : 'Done'}
+                            {togglingPageCompletion ? t('pdfViewer.updating') : t('pdfViewer.pageDone')}
                         </button>
                         <p className="page-done-explanation">
-                            {pageCompleted 
-                                ? 'Click to remove done status for this page' 
-                                : 'Click to mark page as complete'}
+                            {pageCompleted
+                                ? t('pdfViewer.pageDoneExplanationCompleted')
+                                : t('pdfViewer.pageDoneExplanation')}
                         </p>
                     </div>
                 )}
@@ -1471,10 +1568,10 @@ function PdfViewerPage() {
                 {/* Suggestion Form */}
                 {selectedFile && user && (
                     <div className="suggestion-section">
-                        <h2>Add Suggestion</h2>
+                        <h2>{t('pdfViewer.addSuggestion')}</h2>
                         <form onSubmit={handleSubmitSuggestion} className="suggestion-form">
                             <div className="form-group">
-                                <label htmlFor="line">Line Number:</label>
+                                <label htmlFor="line">{t('pdfViewer.lineNumber')}</label>
                                 <input
                                     type="number"
                                     id="line"
@@ -1484,11 +1581,11 @@ function PdfViewerPage() {
                                     min="1"
                                     required
                                     disabled={submitting}
-                                    placeholder="Enter line number"
+                                    placeholder={t('pdfViewer.lineNumberPlaceholder')}
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="comment">Comment:</label>
+                                <label htmlFor="comment">{t('pdfViewer.comment')}</label>
                                 <textarea
                                     id="comment"
                                     name="comment"
@@ -1496,15 +1593,15 @@ function PdfViewerPage() {
                                     onChange={handleFormChange}
                                     required
                                     disabled={submitting}
-                                    placeholder="Enter your comment or suggestion"
+                                    placeholder={t('pdfViewer.commentPlaceholder')}
                                     rows="4"
                                 />
                             </div>
                             <button type="submit" disabled={submitting} className="submit-button">
-                                {submitting ? 'Submitting...' : 'Add Suggestion'}
+                                {submitting ? t('pdfViewer.submitting') : t('pdfViewer.addSuggestionButton')}
                             </button>
                             <div className="form-note">
-                                <small>Current page: {pageNumber}</small>
+                                <small>{t('pdfViewer.currentPage', { page: pageNumber })}</small>
                             </div>
                         </form>
                     </div>
@@ -1516,20 +1613,20 @@ function PdfViewerPage() {
                         <h2>
                             {user && user.role === 'admin' ? (
                                 <>
-                                    All Suggestions (Admin View)
+                                    {t('pdfViewer.allSuggestions')}
                                     {suggestions.length > 0 && (
                                         <span className="suggestion-count">
-                                            {' '}({suggestions.length} total)
+                                            {' '}{t('pdfViewer.totalSuggestions', { count: suggestions.length })}
                                         </span>
                                     )}
                                 </>
                             ) : (
                                 <>
-                                    Suggestions for Page {pageNumber}
+                                    {t('pdfViewer.suggestionsForPage', { page: pageNumber })}
                                     {suggestions.length > 0 && (
                                         <span className="suggestion-count">
                                             {' '}
-                                            ({getCurrentPageSuggestions().length} on this page, {suggestions.length} total)
+                                            {t('pdfViewer.suggestionsOnPage', { count: getCurrentPageSuggestions().length, total: suggestions.length })}
                                         </span>
                                     )}
                                 </>
@@ -1544,7 +1641,7 @@ function PdfViewerPage() {
                                             checked={selectedSuggestions.size === getCurrentPageSuggestions().length && getCurrentPageSuggestions().length > 0}
                                             onChange={(e) => handleSelectAll(e.target.checked)}
                                         />
-                                        <span>Select All</span>
+                                        <span>{t('common.selectAll')}</span>
                                     </label>
                                     {selectedSuggestions.size > 0 && (
                                         <button
@@ -1552,7 +1649,7 @@ function PdfViewerPage() {
                                             onClick={handleDeleteSelected}
                                             disabled={deletingSuggestions}
                                         >
-                                            {deletingSuggestions ? 'Deleting...' : `Delete Selected (${selectedSuggestions.size})`}
+                                            {deletingSuggestions ? t('pdfViewer.deleting') : t('pdfViewer.deleteSelected', { count: selectedSuggestions.size })}
                                         </button>
                                     )}
                                 </div>
@@ -1562,13 +1659,13 @@ function PdfViewerPage() {
                             <table className="suggestions-table">
                                 <thead>
                                     <tr>
-                                        {user && user.role === 'admin' && <th>Select</th>}
-                                        {user && user.role === 'admin' && <th>Page</th>}
-                                        <th>Line</th>
-                                        <th>Comment</th>
-                                        <th>User</th>
-                                        {user && user.role === 'admin' && <th>Status</th>}
-                                        <th>Date</th>
+                                        {user && user.role === 'admin' && <th>{t('common.select')}</th>}
+                                        {user && user.role === 'admin' && <th>{t('pdfViewer.page')}</th>}
+                                        <th>{t('pdfViewer.line')}</th>
+                                        <th>{t('pdfViewer.comment')}</th>
+                                        <th>{t('pdfViewer.user')}</th>
+                                        {user && user.role === 'admin' && <th>{t('pdfViewer.status')}</th>}
+                                        <th>{t('pdfViewer.date')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1612,10 +1709,10 @@ function PdfViewerPage() {
                                                             disabled={updatingStatus}
                                                             className="status-select"
                                                         >
-                                                            <option value="pending">Pending</option>
-                                                            <option value="in_progress">In Progress</option>
-                                                            <option value="done">Done</option>
-                                                            <option value="irrelevant">Irrelevant</option>
+                                                            <option value="pending">{t('status.pending')}</option>
+                                                            <option value="in_progress">{t('status.inProgress')}</option>
+                                                            <option value="done">{t('status.done')}</option>
+                                                            <option value="irrelevant">{t('status.irrelevant')}</option>
                                                         </select>
                                                     </td>
                                                 )}
@@ -1630,8 +1727,8 @@ function PdfViewerPage() {
                             <div className="no-suggestions">
                                 <p>
                                     {user && user.role === 'admin'
-                                        ? 'No suggestions yet for this document.'
-                                        : `No suggestions yet for page ${pageNumber}. Be the first to add one!`}
+                                        ? t('pdfViewer.noSuggestionsAdmin')
+                                        : t('pdfViewer.noSuggestions')}
                                 </p>
                             </div>
                         )}

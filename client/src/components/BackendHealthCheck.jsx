@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import healthService from '../api-services/healthService';
+import { useI18n } from '../context/I18nContext';
 import './BackendHealthCheck.css';
 
 /**
@@ -18,6 +19,7 @@ function BackendHealthCheck({ children }) {
     const [retryCount, setRetryCount] = useState(0);
     const isMountedRef = useRef(true);
     const retryIntervalRef = useRef(null);
+    const { t } = useI18n();
 
     useEffect(() => {
         // Don't start checking if already available
@@ -83,10 +85,10 @@ function BackendHealthCheck({ children }) {
             <div className="backend-health-check">
                 <div className="health-check-container">
                     <div className="health-check-spinner"></div>
-                    <h2>Connecting to server...</h2>
-                    <p>Please wait while we check if the server is available.</p>
+                    <h2>{t('pdfViewer.connectingToServer')}</h2>
+                    <p>{t('pdfViewer.checkingServer')}</p>
                     {retryCount > 0 && (
-                        <p className="retry-info">Retrying... (Attempt {retryCount})</p>
+                        <p className="retry-info">{t('pdfViewer.retrying', { count: retryCount })}</p>
                     )}
                 </div>
             </div>

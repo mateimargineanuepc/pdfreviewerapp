@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import registrationService from '../api-services/registrationService';
 import progressService from '../api-services/progressService';
 import fileService from '../api-services/fileService';
@@ -13,6 +14,7 @@ import './AdminDashboardPage.css';
  */
 function AdminDashboardPage() {
     const { user } = useAuth();
+    const { t } = useI18n();
     const [registrations, setRegistrations] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -60,7 +62,7 @@ function AdminDashboardPage() {
      * @param {string} userId - User ID to approve
      */
     const handleApprove = async (userId) => {
-        if (!window.confirm('Are you sure you want to approve this registration?')) {
+        if (!window.confirm(t('admin.confirmApprove'))) {
             return;
         }
 
@@ -81,11 +83,11 @@ function AdminDashboardPage() {
      */
     const handleReject = async (userId) => {
         if (!rejectionReason.trim()) {
-            setError('Please provide a reason for rejection');
+            setError(t('admin.rejectionReasonRequired'));
             return;
         }
 
-        if (!window.confirm('Are you sure you want to reject this registration?')) {
+        if (!window.confirm(t('admin.confirmReject'))) {
             return;
         }
 
@@ -202,7 +204,7 @@ function AdminDashboardPage() {
         return (
             <div className="admin-dashboard-page">
                 <div className="admin-dashboard-container">
-                    <div className="error-message">Access denied. Admin privileges required.</div>
+                    <div className="error-message">{t('admin.accessDenied')}</div>
                 </div>
             </div>
         );
@@ -211,7 +213,7 @@ function AdminDashboardPage() {
     return (
         <div className="admin-dashboard-page">
             <div className="admin-dashboard-container">
-                <h1>Admin Dashboard</h1>
+                <h1>{t('admin.dashboard')}</h1>
 
                 {/* Tab Navigation */}
                 <div className="dashboard-tabs">
@@ -219,41 +221,41 @@ function AdminDashboardPage() {
                         className={`tab-button ${activeTab === 'registrations' ? 'active' : ''}`}
                         onClick={() => setActiveTab('registrations')}
                     >
-                        Registration Management
+                        {t('admin.registrationManagement')}
                     </button>
                     <button
                         className={`tab-button ${activeTab === 'progress' ? 'active' : ''}`}
                         onClick={() => setActiveTab('progress')}
                     >
-                        Progress Overview
+                        {t('admin.progressOverview')}
                     </button>
                 </div>
 
                 {/* Registration Management Tab */}
                 {activeTab === 'registrations' && (
                     <>
-                        <h2>Registration Management</h2>
+                        <h2>{t('admin.registrationManagement')}</h2>
 
                 {/* Status Filter */}
                 <div className="status-filter">
-                    <label htmlFor="statusFilter">Filter by Status:</label>
+                    <label htmlFor="statusFilter">{t('admin.filterByStatus')}</label>
                     <select
                         id="statusFilter"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                         disabled={loading}
                     >
-                        <option value="">All</option>
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
+                        <option value="">{t('admin.all')}</option>
+                        <option value="pending">{t('admin.pending')}</option>
+                        <option value="approved">{t('admin.approved')}</option>
+                        <option value="rejected">{t('admin.rejected')}</option>
                     </select>
                 </div>
 
                 {error && <div className="error-message">{error}</div>}
 
                 {/* Loading State */}
-                {loading && <div className="loading">Loading registrations...</div>}
+                {loading && <div className="loading">{t('admin.loadingRegistrations')}</div>}
 
                 {/* Registrations List */}
                 {!loading && registrations.length > 0 && (
@@ -267,18 +269,18 @@ function AdminDashboardPage() {
                                     </div>
                                 </div>
                                 <div className="registration-details">
-                                    <strong>Registration Details:</strong>
+                                    <strong>{t('admin.registrationDetails')}</strong>
                                     <p>{registration.registrationDetails}</p>
                                 </div>
                                 {registration.rejectionReason && (
                                     <div className="rejection-reason">
-                                        <strong>Rejection Reason:</strong>
+                                        <strong>{t('admin.rejectionReason')}</strong>
                                         <p>{registration.rejectionReason}</p>
                                     </div>
                                 )}
                                 <div className="registration-meta">
                                     <small>
-                                        Registered: {new Date(registration.createdAt).toLocaleString()}
+                                        {t('admin.registered')} {new Date(registration.createdAt).toLocaleString()}
                                     </small>
                                 </div>
                                 {(!registration.registrationStatus || registration.registrationStatus === 'pending') && (
@@ -288,25 +290,25 @@ function AdminDashboardPage() {
                                             disabled={loading}
                                             className="approve-button"
                                         >
-                                            Approve
+                                            {t('admin.approve')}
                                         </button>
                                         <button
                                             onClick={() => setRejectingUserId(registration.id)}
                                             disabled={loading}
                                             className="reject-button"
                                         >
-                                            Reject
+                                            {t('admin.reject')}
                                         </button>
                                     </div>
                                 )}
                                 {rejectingUserId === registration.id && (
                                     <div className="rejection-form">
-                                        <label htmlFor="rejectionReason">Rejection Reason:</label>
+                                        <label htmlFor="rejectionReason">{t('admin.rejectionReasonLabel')}</label>
                                         <textarea
                                             id="rejectionReason"
                                             value={rejectionReason}
                                             onChange={(e) => setRejectionReason(e.target.value)}
-                                            placeholder="Please provide a reason for rejection..."
+                                            placeholder={t('admin.rejectionReasonPlaceholder')}
                                             rows="3"
                                         />
                                         <div className="rejection-form-actions">
@@ -315,7 +317,7 @@ function AdminDashboardPage() {
                                                 disabled={loading || !rejectionReason.trim()}
                                                 className="confirm-reject-button"
                                             >
-                                                Confirm Rejection
+                                                {t('admin.confirmRejection')}
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -325,7 +327,7 @@ function AdminDashboardPage() {
                                                 disabled={loading}
                                                 className="cancel-button"
                                             >
-                                                Cancel
+                                                {t('admin.cancel')}
                                             </button>
                                         </div>
                                     </div>
@@ -339,9 +341,13 @@ function AdminDashboardPage() {
                 {!loading && registrations.length === 0 && (
                     <div className="no-registrations">
                         <p>
-                            {statusFilter
-                                ? `No ${statusFilter} registrations found.`
-                                : 'No registrations found.'}
+                            {statusFilter === 'pending'
+                                ? t('admin.noPendingRegistrations')
+                                : statusFilter === 'approved'
+                                ? t('admin.noApprovedRegistrations')
+                                : statusFilter === 'rejected'
+                                ? t('admin.noRejectedRegistrations')
+                                : t('admin.noRegistrations')}
                         </p>
                     </div>
                 )}
@@ -351,18 +357,18 @@ function AdminDashboardPage() {
                 {/* Progress Overview Tab */}
                 {activeTab === 'progress' && (
                     <>
-                        <h2>Progress Overview</h2>
+                        <h2>{t('admin.progressOverview')}</h2>
                         
                         {/* User Selection Dropdown */}
                         <div className="user-filter">
-                            <label htmlFor="userSelect">Select User:</label>
+                            <label htmlFor="userSelect">{t('admin.filterByUser')}</label>
                             <select
                                 id="userSelect"
                                 value={selectedUser}
                                 onChange={(e) => setSelectedUser(e.target.value)}
                                 className="user-select"
                             >
-                                <option value="">All Users</option>
+                                <option value="">{t('admin.allUsers')}</option>
                                 {Array.from(new Set(allProgress.map((p) => p.userEmail)))
                                     .sort()
                                     .map((userEmail) => (
@@ -374,21 +380,21 @@ function AdminDashboardPage() {
                         </div>
 
                         {loadingProgress ? (
-                            <div className="loading">Loading progress data...</div>
+                            <div className="loading">{t('admin.loadingProgress')}</div>
                         ) : (
                             <div className="progress-overview">
                                 {files.length === 0 ? (
                                     <div className="no-progress">
-                                        <p>No documents available.</p>
+                                        <p>{t('admin.noProgress')}</p>
                                     </div>
                                 ) : (
                                     <div className="progress-table-container">
                                         <table className="progress-table">
                                             <thead>
                                                 <tr>
-                                                    <th>Document</th>
-                                                    <th>Progress</th>
-                                                    <th>Completed Pages</th>
+                                                    <th>{t('admin.document')}</th>
+                                                    <th>{t('admin.progress')}</th>
+                                                    <th>{t('admin.completedPages')}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -410,7 +416,7 @@ function AdminDashboardPage() {
                                                         return (
                                                             <tr key={file.name}>
                                                                 <td colSpan="3" className="no-progress-cell">
-                                                                    {file.name} - {selectedUser ? 'No progress yet for this user' : 'No progress yet'}
+                                                                    {file.name} - {selectedUser ? t('admin.noProgressForUser', { email: selectedUser }) : t('admin.noProgress')}
                                                                 </td>
                                                             </tr>
                                                         );
@@ -447,10 +453,10 @@ function AdminDashboardPage() {
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    {completedCount} page{completedCount !== 1 ? 's' : ''} completed
+                                                                    {completedCount} {t('admin.pages')} {completedCount !== 1 ? '' : ''} {t('admin.completed')}
                                                                     {progress && progress.completedPages.length > 0 && (
                                                                         <div className="completed-pages-list">
-                                                                            Pages: {progress.completedPages.join(', ')}
+                                                                            {t('admin.pages')}: {progress.completedPages.join(', ')}
                                                                         </div>
                                                                     )}
                                                                 </td>
