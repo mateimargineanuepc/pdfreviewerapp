@@ -12,6 +12,7 @@ import HomePage from './pages/HomePage';
 import DocumentSelectionPage from './pages/DocumentSelectionPage';
 import PdfViewerPage from './pages/PdfViewerPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -72,6 +73,7 @@ function App() {
                                                     <Route path="/documents" element={<DocumentSelectionPage />} />
                                                     <Route path="/viewer" element={<PdfViewerPage />} />
                                                     <Route path="/admin" element={<AdminDashboardPage />} />
+                                                    <Route path="/profile" element={<ProfilePage />} />
                                                     <Route path="*" element={<Navigate to="/" replace />} />
                                                 </Routes>
                                             </main>

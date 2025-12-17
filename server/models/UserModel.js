@@ -22,6 +22,18 @@ const userSchema = new mongoose.Schema(
             // Allow both email format (user@domain.com) and simple username format (for admin like "matei.margineanu")
             match: [/^(\S+@\S+\.\S+|[a-zA-Z0-9._-]+)$/, 'Please provide a valid email address or username'],
         },
+        firstName: {
+            type: String,
+            required: [true, 'First name is required'],
+            trim: true,
+            maxlength: [100, 'First name must not exceed 100 characters'],
+        },
+        lastName: {
+            type: String,
+            required: [true, 'Last name is required'],
+            trim: true,
+            maxlength: [100, 'Last name must not exceed 100 characters'],
+        },
         password: {
             type: String,
             required: [true, 'Password is required'],

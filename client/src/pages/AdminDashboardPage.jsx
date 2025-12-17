@@ -6,6 +6,7 @@ import { useI18n } from '../context/I18nContext';
 import registrationService from '../api-services/registrationService';
 import progressService from '../api-services/progressService';
 import fileService from '../api-services/fileService';
+import userManagementService from '../api-services/userManagementService';
 import './AdminDashboardPage.css';
 
 /**
@@ -21,12 +22,26 @@ function AdminDashboardPage() {
     const [statusFilter, setStatusFilter] = useState('pending');
     const [rejectingUserId, setRejectingUserId] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
-    const [activeTab, setActiveTab] = useState('registrations'); // 'registrations' or 'progress'
+    const [activeTab, setActiveTab] = useState('registrations'); // 'registrations', 'progress', or 'users'
     const [allProgress, setAllProgress] = useState([]);
     const [loadingProgress, setLoadingProgress] = useState(false);
     const [files, setFiles] = useState([]);
     const [selectedUser, setSelectedUser] = useState(''); // Selected user email for filtering
     const [pageCounts, setPageCounts] = useState({}); // Cache for PDF page counts
+    
+    // User management state
+    const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortField, setSortField] = useState('createdAt');
+    const [sortDirection, setSortDirection] = useState('desc');
+    const [editingUser, setEditingUser] = useState(null);
+    const [editFirstName, setEditFirstName] = useState('');
+    const [editLastName, setEditLastName] = useState('');
+    const [changingPasswordUserId, setChangingPasswordUserId] = useState(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     /**
      * Loads registration requests or progress based on active tab
@@ -38,6 +53,8 @@ function AdminDashboardPage() {
             } else if (activeTab === 'progress') {
                 loadAllProgress();
                 loadFileList();
+            } else if (activeTab === 'users') {
+                loadUsers();
             }
         }
     }, [user, statusFilter, activeTab]);
@@ -199,6 +216,173 @@ function AdminDashboardPage() {
         );
     };
 
+    /**
+     * Loads all users
+     */
+    const loadUsers = async () => {
+        setLoadingUsers(true);
+        setError('');
+        const result = await userManagementService.getAllUsers();
+        if (result.success) {
+            setUsers(result.data);
+        } else {
+            setError(result.error || 'Failed to load users');
+        }
+        setLoadingUsers(false);
+    };
+
+    /**
+     * Handles sorting of users table
+     * @param {string} field - Field to sort by
+     */
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    /**
+     * Gets filtered and sorted users
+     * @returns {Array} Filtered and sorted users
+     */
+    const getFilteredAndSortedUsers = () => {
+        let filtered = users;
+
+        // Apply search filter
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(
+                (u) =>
+                    u.email.toLowerCase().includes(query) ||
+                    (u.firstName || '').toLowerCase().includes(query) ||
+                    (u.lastName || '').toLowerCase().includes(query) ||
+                    u.role.toLowerCase().includes(query) ||
+                    (u.registrationStatus || '').toLowerCase().includes(query)
+            );
+        }
+
+        // Apply sorting
+        filtered = [...filtered].sort((a, b) => {
+            let aValue = a[sortField];
+            let bValue = b[sortField];
+
+            if (sortField === 'createdAt' || sortField === 'updatedAt') {
+                aValue = new Date(aValue).getTime();
+                bValue = new Date(bValue).getTime();
+            } else {
+                aValue = (aValue || '').toString().toLowerCase();
+                bValue = (bValue || '').toString().toLowerCase();
+            }
+
+            if (sortDirection === 'asc') {
+                return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            } else {
+                return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+            }
+        });
+
+        return filtered;
+    };
+
+    /**
+     * Opens edit modal for a user
+     * @param {Object} user - User to edit
+     */
+    const handleEditUser = (user) => {
+        setEditingUser(user);
+        setEditFirstName(user.firstName || '');
+        setEditLastName(user.lastName || '');
+    };
+
+    /**
+     * Saves user edits
+     */
+    const handleSaveEdit = async () => {
+        if (!editFirstName.trim() || !editLastName.trim()) {
+            setError(t('admin.firstNameLastNameRequired'));
+            return;
+        }
+
+        setLoadingUsers(true);
+        setError('');
+        const result = await userManagementService.updateUser(
+            editingUser.id,
+            editFirstName.trim(),
+            editLastName.trim()
+        );
+        if (result.success) {
+            await loadUsers();
+            setEditingUser(null);
+            setEditFirstName('');
+            setEditLastName('');
+        } else {
+            setError(result.error || 'Failed to update user');
+        }
+        setLoadingUsers(false);
+    };
+
+    /**
+     * Handles user deletion
+     * @param {string} userId - User ID to delete
+     * @param {string} userEmail - User email for confirmation
+     */
+    const handleDeleteUser = async (userId, userEmail) => {
+        if (!window.confirm(t('admin.confirmDeleteUser', { email: userEmail }))) {
+            return;
+        }
+
+        setLoadingUsers(true);
+        setError('');
+        const result = await userManagementService.deleteUser(userId);
+        if (result.success) {
+            await loadUsers();
+        } else {
+            setError(result.error || 'Failed to delete user');
+        }
+        setLoadingUsers(false);
+    };
+
+    /**
+     * Opens change password modal
+     * @param {Object} user - User to change password for
+     */
+    const handleOpenChangePassword = (user) => {
+        setChangingPasswordUserId(user.id);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setPasswordError('');
+    };
+
+    /**
+     * Handles password change
+     */
+    const handleChangePassword = async () => {
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordError(t('admin.passwordMinLength'));
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            setPasswordError(t('admin.passwordsDoNotMatch'));
+            return;
+        }
+
+        setLoadingUsers(true);
+        setPasswordError('');
+        const result = await userManagementService.changeUserPassword(changingPasswordUserId, newPassword);
+        if (result.success) {
+            setChangingPasswordUserId(null);
+            setNewPassword('');
+            setConfirmNewPassword('');
+        } else {
+            setPasswordError(result.error || 'Failed to change password');
+        }
+        setLoadingUsers(false);
+    };
+
     // Only show for admins
     if (!user || user.role !== 'admin') {
         return (
@@ -228,6 +412,12 @@ function AdminDashboardPage() {
                         onClick={() => setActiveTab('progress')}
                     >
                         {t('admin.progressOverview')}
+                    </button>
+                    <button
+                        className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('users')}
+                    >
+                        {t('admin.userManagement')}
                     </button>
                 </div>
 
@@ -468,6 +658,240 @@ function AdminDashboardPage() {
                                         </table>
                                     </div>
                                 )}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* User Management Tab */}
+                {activeTab === 'users' && (
+                    <>
+                        <h2>{t('admin.userManagement')}</h2>
+
+                        {/* Search Bar */}
+                        <div className="user-search">
+                            <input
+                                type="text"
+                                placeholder={t('admin.searchUsers')}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="search-input"
+                            />
+                        </div>
+
+                        {error && <div className="error-message">{error}</div>}
+
+                        {/* Loading State */}
+                        {loadingUsers && <div className="loading">{t('admin.loadingUsers')}</div>}
+
+                        {/* Users Table */}
+                        {!loadingUsers && (
+                            <div className="users-table-container">
+                                <table className="users-table">
+                                    <thead>
+                                        <tr>
+                                            <th onClick={() => handleSort('email')} className="sortable">
+                                                {t('admin.email')}
+                                                {sortField === 'email' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th onClick={() => handleSort('firstName')} className="sortable">
+                                                {t('admin.firstName')}
+                                                {sortField === 'firstName' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th onClick={() => handleSort('lastName')} className="sortable">
+                                                {t('admin.lastName')}
+                                                {sortField === 'lastName' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th onClick={() => handleSort('role')} className="sortable">
+                                                {t('admin.role')}
+                                                {sortField === 'role' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th onClick={() => handleSort('registrationStatus')} className="sortable">
+                                                {t('admin.status')}
+                                                {sortField === 'registrationStatus' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th onClick={() => handleSort('createdAt')} className="sortable">
+                                                {t('admin.createdAt')}
+                                                {sortField === 'createdAt' && (
+                                                    <span className="sort-indicator">
+                                                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                                                    </span>
+                                                )}
+                                            </th>
+                                            <th>{t('admin.actions')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {getFilteredAndSortedUsers().length === 0 ? (
+                                            <tr>
+                                                <td colSpan="7" className="no-users">
+                                                    {searchQuery ? t('admin.noUsersFound') : t('admin.noUsers')}
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            getFilteredAndSortedUsers().map((tableUser) => (
+                                                <tr key={tableUser.id}>
+                                                    <td>{tableUser.email}</td>
+                                                    <td>{tableUser.firstName || '-'}</td>
+                                                    <td>{tableUser.lastName || '-'}</td>
+                                                    <td>
+                                                        <span className={`role-badge role-${tableUser.role}`}>
+                                                            {tableUser.role}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`status-badge status-${tableUser.registrationStatus || 'pending'}`}>
+                                                            {tableUser.registrationStatus || 'pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td>{new Date(tableUser.createdAt).toLocaleDateString()}</td>
+                                                    <td>
+                                                        <div className="user-actions">
+                                                            <button
+                                                                onClick={() => handleEditUser(tableUser)}
+                                                                className="action-button edit-button"
+                                                                title={t('admin.editUser')}
+                                                            >
+                                                                ✏️
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleOpenChangePassword(tableUser)}
+                                                                className="action-button password-button"
+                                                                title={t('admin.changePassword')}
+                                                            >
+                                                                🔑
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteUser(tableUser.id, tableUser.email)}
+                                                                className="action-button delete-button"
+                                                                title={t('admin.deleteUser')}
+                                                                disabled={tableUser.id === user?.id || (tableUser.email === 'matei.margineanu' && tableUser.role === 'admin')}
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {/* Edit User Modal */}
+                        {editingUser && (
+                            <div className="modal-overlay" onClick={() => setEditingUser(null)}>
+                                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                    <h3>{t('admin.editUser')}</h3>
+                                    <div className="form-group">
+                                        <label>{t('admin.email')}:</label>
+                                        <input type="text" value={editingUser.email} disabled />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{t('admin.firstName')}:</label>
+                                        <input
+                                            type="text"
+                                            value={editFirstName}
+                                            onChange={(e) => setEditFirstName(e.target.value)}
+                                            maxLength={100}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{t('admin.lastName')}:</label>
+                                        <input
+                                            type="text"
+                                            value={editLastName}
+                                            onChange={(e) => setEditLastName(e.target.value)}
+                                            maxLength={100}
+                                        />
+                                    </div>
+                                    <div className="modal-actions">
+                                        <button onClick={handleSaveEdit} className="save-button" disabled={loadingUsers}>
+                                            {t('admin.save')}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setEditingUser(null);
+                                                setEditFirstName('');
+                                                setEditLastName('');
+                                            }}
+                                            className="cancel-button"
+                                            disabled={loadingUsers}
+                                        >
+                                            {t('admin.cancel')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Change Password Modal */}
+                        {changingPasswordUserId && (
+                            <div className="modal-overlay" onClick={() => setChangingPasswordUserId(null)}>
+                                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                                    <h3>{t('admin.changePassword')}</h3>
+                                    {passwordError && <div className="error-message">{passwordError}</div>}
+                                    <div className="form-group">
+                                        <label>{t('admin.newPassword')}:</label>
+                                        <input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            minLength={6}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{t('admin.confirmNewPassword')}:</label>
+                                        <input
+                                            type="password"
+                                            value={confirmNewPassword}
+                                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                            minLength={6}
+                                        />
+                                    </div>
+                                    <div className="modal-actions">
+                                        <button
+                                            onClick={handleChangePassword}
+                                            className="save-button"
+                                            disabled={loadingUsers || !newPassword || !confirmNewPassword}
+                                        >
+                                            {t('admin.changePassword')}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setChangingPasswordUserId(null);
+                                                setNewPassword('');
+                                                setConfirmNewPassword('');
+                                                setPasswordError('');
+                                            }}
+                                            className="cancel-button"
+                                            disabled={loadingUsers}
+                                        >
+                                            {t('admin.cancel')}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </>

@@ -76,7 +76,12 @@ function Navigation() {
                     )}
                     {user && (
                         <div className="nav-user-menu">
-                            <span className="nav-user-email">{user.email}</span>
+                            <Link
+                                to="/profile"
+                                className="nav-user-email-link"
+                            >
+                                {user.email}
+                            </Link>
                             <button onClick={handleLogout} className="nav-logout-button">
                                 {t('navigation.logout')}
                             </button>
@@ -116,7 +121,13 @@ function Navigation() {
                 )}
                 {user && (
                     <div className="nav-user-info">
-                        <div className="nav-user-email">{user.email}</div>
+                        <Link
+                            to="/profile"
+                            className="nav-user-email-link"
+                            onClick={closeMenu}
+                        >
+                            {user.email}
+                        </Link>
                         <div className="nav-user-role">{t('auth.role')}: {user.role}</div>
                         <button onClick={handleLogout} className="nav-logout-button">
                             {t('navigation.logout')}

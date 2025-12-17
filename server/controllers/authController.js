@@ -19,7 +19,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
  */
 async function register(req, res, next) {
     try {
-        const { email, password, role, registrationDetails } = req.body;
+        const { email, password, role, registrationDetails, firstName, lastName } = req.body;
 
         // Validate input with specific error messages
         if (!email || email.trim().length === 0) {
@@ -30,6 +30,22 @@ async function register(req, res, next) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return next(createError(400, 'Please provide a valid email address'));
+        }
+
+        if (!firstName || firstName.trim().length === 0) {
+            return next(createError(400, 'First name is required'));
+        }
+
+        if (firstName.trim().length > 100) {
+            return next(createError(400, 'First name must not exceed 100 characters'));
+        }
+
+        if (!lastName || lastName.trim().length === 0) {
+            return next(createError(400, 'Last name is required'));
+        }
+
+        if (lastName.trim().length > 100) {
+            return next(createError(400, 'Last name must not exceed 100 characters'));
         }
 
         if (!password || password.length === 0) {
@@ -65,6 +81,8 @@ async function register(req, res, next) {
         // Create new user with pending status (unless it's an admin creating another admin)
         const user = new User({
             email: normalizedEmail,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
             password: hashedPassword,
             role: role || 'user',
             registrationStatus: role === 'admin' ? 'approved' : 'pending',
@@ -83,6 +101,8 @@ async function register(req, res, next) {
                     user: {
                         id: user._id,
                         email: user.email,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
                         role: user.role,
                         registrationStatus: user.registrationStatus,
                     },
@@ -112,6 +132,8 @@ async function register(req, res, next) {
                 user: {
                     id: user._id,
                     email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
                     role: user.role,
                     registrationStatus: user.registrationStatus,
                 },
@@ -203,6 +225,8 @@ async function login(req, res, next) {
                 user: {
                     id: user._id,
                     email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
                     role: user.role,
                 },
                 token,

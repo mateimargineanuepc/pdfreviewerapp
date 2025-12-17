@@ -87,14 +87,18 @@ export function AuthProvider({ children }) {
      * @param {string} email - User email
      * @param {string} password - User password
      * @param {string} registrationDetails - Registration details for admin approval
+     * @param {string} firstName - User first name
+     * @param {string} lastName - User last name
      * @returns {Promise<Object>} Registration response
      */
-    const register = async (email, password, registrationDetails) => {
+    const register = async (email, password, registrationDetails, firstName, lastName) => {
         try {
             const response = await api.post('/api/auth/register', {
                 email,
                 password,
                 registrationDetails,
+                firstName,
+                lastName,
             });
 
             if (response.data.success && response.data.data) {

@@ -28,6 +28,8 @@ async function getPendingRegistrations(req, res, next) {
                 registrations: pendingUsers.map((user) => ({
                     id: user._id,
                     email: user.email,
+                    firstName: user.firstName || '',
+                    lastName: user.lastName || '',
                     role: user.role,
                     registrationStatus: user.registrationStatus || 'pending',
                     registrationDetails: user.registrationDetails || '',
@@ -74,6 +76,8 @@ async function getAllRegistrations(req, res, next) {
                 registrations: users.map((user) => ({
                     id: user._id,
                     email: user.email,
+                    firstName: user.firstName || '',
+                    lastName: user.lastName || '',
                     role: user.role,
                     registrationStatus: user.registrationStatus || 'pending',
                     registrationDetails: user.registrationDetails || '',

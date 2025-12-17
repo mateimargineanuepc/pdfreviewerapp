@@ -107,6 +107,26 @@
     white-space: nowrap;
 }
 
+.nav-user-email-link {
+    font-size: 14px;
+    color: var(--silver-secondary);
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+.nav-user-email-link:hover {
+    color: var(--gold-primary);
+    background: var(--bg-hover);
+    text-shadow: 0 0 8px var(--shadow-gold);
+}
+
 .nav-logout-button {
     padding: 10px 20px;
     background: transparent;
@@ -221,6 +241,25 @@
     font-weight: 600;
     max-width: 100%;
     color: var(--gold-primary);
+}
+
+.nav-user-info .nav-user-email-link {
+    font-size: 16px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    max-width: 100%;
+    color: var(--gold-primary);
+    text-decoration: none;
+    display: block;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.nav-user-info .nav-user-email-link:hover {
+    background: var(--bg-hover);
+    text-shadow: 0 0 8px var(--shadow-gold);
+    transform: translateX(3px);
 }
 
 .nav-user-role {

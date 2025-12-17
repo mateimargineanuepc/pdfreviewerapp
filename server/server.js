@@ -12,6 +12,8 @@ const fileRoutes = require('./routes/fileRoutes');
 const suggestionRoutes = require('./routes/suggestionRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
 const progressRoutes = require('./routes/progressRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const userManagementRoutes = require('./routes/userManagementRoutes');
 const { initializeAdminUser } = require('./scripts/initializeAdminUser');
 
 const app = express();
@@ -56,6 +58,8 @@ app.use('/api/files', fileRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/admin/users', userManagementRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

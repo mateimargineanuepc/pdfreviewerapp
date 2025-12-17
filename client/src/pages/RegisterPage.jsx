@@ -12,11 +12,15 @@ import './RegisterPage.css';
  */
 function RegisterPage() {
     const [email, setEmail] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [registrationDetails, setRegistrationDetails] = useState('');
     const [errors, setErrors] = useState({
         email: '',
+        firstName: '',
+        lastName: '',
         password: '',
         confirmPassword: '',
         registrationDetails: '',
@@ -35,6 +39,8 @@ function RegisterPage() {
     const validateForm = () => {
         const newErrors = {
             email: '',
+            firstName: '',
+            lastName: '',
             password: '',
             confirmPassword: '',
             registrationDetails: '',
@@ -49,6 +55,20 @@ function RegisterPage() {
             if (!emailRegex.test(email)) {
                 newErrors.email = t('registration.emailInvalid');
             }
+        }
+
+        // Validate firstName
+        if (!firstName || firstName.trim().length === 0) {
+            newErrors.firstName = t('registration.firstNameRequired');
+        } else if (firstName.trim().length > 100) {
+            newErrors.firstName = t('registration.firstNameTooLong');
+        }
+
+        // Validate lastName
+        if (!lastName || lastName.trim().length === 0) {
+            newErrors.lastName = t('registration.lastNameRequired');
+        } else if (lastName.trim().length > 100) {
+            newErrors.lastName = t('registration.lastNameTooLong');
         }
 
         // Validate password
@@ -96,7 +116,7 @@ function RegisterPage() {
         setSuccess(false);
 
         // Attempt registration
-        const result = await register(email, password, registrationDetails);
+        const result = await register(email, password, registrationDetails, firstName, lastName);
 
         if (result.success) {
             // Check if approval is required
@@ -190,6 +210,54 @@ function RegisterPage() {
                         {errors.email && <div className="field-error">{errors.email}</div>}
                     </div>
                     <div className="form-group">
+                        <label htmlFor="firstName">
+                            {t('registration.firstName')} <span className="required">{t('registration.required')}</span>:
+                        </label>
+                        <input
+                            type="text"
+                            id="firstName"
+                            value={firstName}
+                            onChange={(e) => {
+                                setFirstName(e.target.value);
+                                if (errors.firstName) {
+                                    setErrors((prev) => ({ ...prev, firstName: '' }));
+                                }
+                            }}
+                            onBlur={() => handleBlur('firstName')}
+                            required
+                            disabled={loading}
+                            placeholder={t('registration.firstName')}
+                            autoComplete="given-name"
+                            maxLength={100}
+                            className={errors.firstName ? 'error' : ''}
+                        />
+                        {errors.firstName && <div className="field-error">{errors.firstName}</div>}
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="lastName">
+                            {t('registration.lastName')} <span className="required">{t('registration.required')}</span>:
+                        </label>
+                        <input
+                            type="text"
+                            id="lastName"
+                            value={lastName}
+                            onChange={(e) => {
+                                setLastName(e.target.value);
+                                if (errors.lastName) {
+                                    setErrors((prev) => ({ ...prev, lastName: '' }));
+                                }
+                            }}
+                            onBlur={() => handleBlur('lastName')}
+                            required
+                            disabled={loading}
+                            placeholder={t('registration.lastName')}
+                            autoComplete="family-name"
+                            maxLength={100}
+                            className={errors.lastName ? 'error' : ''}
+                        />
+                        {errors.lastName && <div className="field-error">{errors.lastName}</div>}
+                    </div>
+                    <div className="form-group">
                         <label htmlFor="password">
                             {t('auth.password')} <span className="required">{t('registration.required')}</span>:
                         </label>
@@ -281,7 +349,7 @@ function RegisterPage() {
                     )}
                     <button 
                         type="submit" 
-                        disabled={loading || success || Object.values(errors).some((error) => error !== '')} 
+                        disabled={loading || success || Object.values(errors).some((error) => error !== '') || !firstName.trim() || !lastName.trim()} 
                         className="submit-button"
                     >
                         {loading ? t('auth.submittingRequest') : t('auth.registerButton')}

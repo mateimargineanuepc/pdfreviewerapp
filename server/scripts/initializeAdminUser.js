@@ -51,6 +51,14 @@ async function initializeAdminUser() {
                 Logger.info(`Admin user registration status updated: ${ADMIN_EMAIL}`);
             }
             
+            // Ensure firstName and lastName are set for admin
+            if (!existingAdmin.firstName || !existingAdmin.lastName) {
+                existingAdmin.firstName = existingAdmin.firstName || 'Matei';
+                existingAdmin.lastName = existingAdmin.lastName || 'Margineanu';
+                await existingAdmin.save();
+                Logger.info(`Admin user name updated: ${ADMIN_EMAIL}`);
+            }
+            
             Logger.debug(`Admin user already exists: ${ADMIN_EMAIL}`);
             return;
         }
@@ -62,6 +70,8 @@ async function initializeAdminUser() {
         // Create admin user (automatically approved)
         const adminUser = new User({
             email: ADMIN_EMAIL,
+            firstName: 'Matei',
+            lastName: 'Margineanu',
             password: hashedPassword,
             role: 'admin',
             registrationStatus: 'approved',

@@ -1585,7 +1585,7 @@ function PdfViewerPage() {
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="comment">{t('pdfViewer.comment')}</label>
+                                <label htmlFor="comment">{t('pdfViewer.commentLabel')}</label>
                                 <textarea
                                     id="comment"
                                     name="comment"
