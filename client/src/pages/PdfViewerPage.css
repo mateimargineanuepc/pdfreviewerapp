@@ -644,8 +644,18 @@
     color: var(--silver-primary);
 }
 
+.suggestions-table tbody tr {
+    transition: all 0.2s ease;
+}
+
 .suggestions-table tbody tr:hover {
     background: var(--bg-hover);
+}
+
+.suggestions-table tbody tr.selected-suggestion-row {
+    background: rgba(0, 188, 212, 0.15) !important; /* Cyan highlight */
+    border-left: 3px solid #00bcd4;
+    box-shadow: 0 0 8px rgba(0, 188, 212, 0.3);
 }
 
 .suggestions-table tbody tr:last-child td {
@@ -1019,5 +1029,277 @@
 
     .suggestions-table td:before {
         content: '';
+    }
+}
+
+/* Comment Dots Overlay */
+.comment-dots-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.comment-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #00bcd4; /* Cyan color */
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 0 4px rgba(0, 188, 212, 0.6);
+    transition: all 0.2s ease;
+}
+
+.comment-dot:hover,
+.comment-dot.hovered {
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 0 8px rgba(0, 188, 212, 0.9);
+    background: #00acc1; /* Darker cyan on hover */
+}
+
+.comment-dot.selected {
+    width: 18px;
+    height: 18px;
+    box-shadow: 0 0 12px rgba(0, 188, 212, 1), 0 0 20px rgba(0, 188, 212, 0.6);
+    background: #0097a7; /* Even darker cyan when selected */
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        box-shadow: 0 0 12px rgba(0, 188, 212, 1), 0 0 20px rgba(0, 188, 212, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 16px rgba(0, 188, 212, 1), 0 0 30px rgba(0, 188, 212, 0.8);
+    }
+}
+
+.comment-tooltip {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    border: 1px solid var(--border-gold);
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 200px;
+    max-width: 300px;
+    box-shadow: 0 4px 12px var(--shadow-dark);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.comment-tooltip-user {
+    font-weight: 600;
+    color: var(--gold-primary);
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.comment-tooltip-comment {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    word-wrap: break-word;
+}
+
+.comment-tooltip-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+.comment-tooltip-status.status-pending {
+    background: var(--status-pending-bg);
+    color: var(--status-pending-text);
+}
+
+.comment-tooltip-status.status-done {
+    background: var(--status-approved-bg);
+    color: var(--status-approved-text);
+}
+
+.comment-tooltip-status.status-irrelevant {
+    background: var(--status-rejected-bg);
+    color: var(--status-rejected-text);
+}
+
+.comment-tooltip-status.status-in_progress {
+    background: var(--bg-gradient-silver);
+    color: var(--text-dark);
+}
+
+/* Click Comment Box */
+.click-comment-box {
+    position: absolute;
+    background: var(--bg-card);
+    border: 2px solid var(--border-gold);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 24px var(--shadow-dark), 0 0 2px var(--border-gold);
+    z-index: 1000;
+    min-width: 280px;
+    max-width: 400px;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.comment-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.comment-box-header h3 {
+    margin: 0;
+    color: var(--gold-primary);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.comment-box-close {
+    background: transparent;
+    border: none;
+    color: var(--silver-accent);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.comment-box-close:hover {
+    background: var(--bg-secondary);
+    color: var(--gold-primary);
+}
+
+.click-comment-box .form-group {
+    margin-bottom: 16px;
+}
+
+.click-comment-box .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--silver-primary);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.click-comment-box .form-group input,
+.click-comment-box .form-group textarea {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.click-comment-box .form-group input:focus,
+.click-comment-box .form-group textarea:focus {
+    outline: none;
+    border-color: var(--gold-primary);
+    box-shadow: 0 0 0 4px var(--shadow-gold);
+}
+
+.comment-box-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.comment-box-actions .submit-button {
+    flex: 1;
+    padding: 10px 20px;
+    background: var(--bg-gradient-gold);
+    color: var(--text-dark);
+    border: 1px solid var(--border-gold);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.comment-box-actions .submit-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--shadow-gold);
+}
+
+.comment-box-actions .submit-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.comment-box-actions .cancel-button {
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.comment-box-actions .cancel-button:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--silver-accent);
+}
+
+/* Mobile optimizations for comment dots and box */
+@media (max-width: 767px) {
+    .comment-dot {
+        width: 10px;
+        height: 10px;
+    }
+
+    .comment-dot:hover,
+    .comment-dot.hovered {
+        width: 14px;
+        height: 14px;
+    }
+
+    .comment-tooltip {
+        min-width: 180px;
+        max-width: 250px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .click-comment-box {
+        min-width: 260px;
+        max-width: 90%;
+        padding: 16px;
+    }
+
+    .comment-box-header h3 {
+        font-size: 16px;
     }
 }

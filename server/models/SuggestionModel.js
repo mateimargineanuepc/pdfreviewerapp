@@ -41,6 +41,14 @@ const suggestionSchema = new mongoose.Schema(
             trim: true,
             minlength: [1, 'Comment cannot be empty'],
         },
+        clickX: {
+            type: Number,
+            default: null,
+        },
+        clickY: {
+            type: Number,
+            default: null,
+        },
         userEmail: {
             type: String,
             required: [true, 'User email is required'],

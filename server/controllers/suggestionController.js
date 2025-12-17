@@ -14,7 +14,7 @@ const { createError } = require('../common/error-handler');
  */
 async function createSuggestion(req, res, next) {
     try {
-        const { fileName, page, line, comment, pdfId } = req.body;
+        const { fileName, page, line, comment, pdfId, clickX, clickY } = req.body;
         const userEmail = req.user.email; // From auth middleware
 
         // Validate required fields
@@ -39,10 +39,14 @@ async function createSuggestion(req, res, next) {
             lineNumber: line,
             comment: comment.trim(),
             userEmail: userEmail,
+            clickX: clickX !== undefined && clickX !== null ? Number(clickX) : null,
+            clickY: clickY !== undefined && clickY !== null ? Number(clickY) : null,
         });
 
         await suggestion.save();
-        Logger.info(`Suggestion created by ${userEmail} for file: ${fileName}, page: ${page}, line: ${line}`);
+        Logger.info(
+            `Suggestion created by ${userEmail} for file: ${fileName}, page: ${page}, line: ${line}${clickX !== undefined && clickY !== undefined ? `, click: (${clickX}, ${clickY})` : ''}`
+        );
 
         res.status(201).json({
             success: true,
@@ -57,6 +61,8 @@ async function createSuggestion(req, res, next) {
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
                     status: suggestion.status || 'pending',
+                    clickX: suggestion.clickX,
+                    clickY: suggestion.clickY,
                     createdAt: suggestion.createdAt,
                 },
             },
@@ -111,6 +117,8 @@ async function getSuggestions(req, res, next) {
                     lineNumber: suggestion.lineNumber,
                     comment: suggestion.comment,
                     userEmail: suggestion.userEmail,
+                    clickX: suggestion.clickX,
+                    clickY: suggestion.clickY,
                     status: suggestion.status || 'pending',
                     createdAt: suggestion.createdAt,
                     updatedAt: suggestion.updatedAt,

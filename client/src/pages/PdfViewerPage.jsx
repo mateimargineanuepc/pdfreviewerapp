@@ -25,6 +25,217 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * CommentDotsOverlay component - Renders cyan dots for all comments on the PDF
+ * Positions dots to avoid overlap when multiple comments are on the same line
+ * @param {Object} props - Component props
+ * @param {Array} props.suggestions - Array of suggestions for current page
+ * @param {Array} props.textLines - Array of text lines with positions
+ * @param {number} props.pageNumber - Current page number
+ * @param {Function} props.onHover - Callback when hovering over a dot
+ * @param {string|null} props.hoveredSuggestionId - ID of currently hovered suggestion
+ * @param {string|null} props.selectedSuggestionId - ID of suggestion selected from table
+ * @returns {JSX.Element} CommentDotsOverlay component
+ */
+function CommentDotsOverlay({ suggestions, textLines, pageNumber, onHover, hoveredSuggestionId, selectedSuggestionId }) {
+
+    // Group suggestions by line number
+    const suggestionsByLine = {};
+    suggestions.forEach((suggestion) => {
+        if (suggestion.pageNumber === pageNumber) {
+            const lineNum = suggestion.lineNumber;
+            if (!suggestionsByLine[lineNum]) {
+                suggestionsByLine[lineNum] = [];
+            }
+            suggestionsByLine[lineNum].push(suggestion);
+        }
+    });
+
+    // Calculate dot positions to avoid overlap
+    const dotPositions = useMemo(() => {
+        const positions = [];
+        const DOT_SIZE = 12; // Size of each dot in pixels
+        const DOT_SPACING = 16; // Spacing between dots
+        const ROW_HEIGHT = 20; // Height of each row of dots
+        const LINE_NUMBER_WIDTH = 60; // Width of line number area
+
+        Object.keys(suggestionsByLine).forEach((lineNumStr) => {
+            const lineNum = parseInt(lineNumStr, 10);
+            const lineSuggestions = suggestionsByLine[lineNum];
+            const lineData = textLines.find((l) => l.lineNumber === lineNum);
+
+            if (!lineData) {
+                // If no line data, use click coordinates if available
+                lineSuggestions.forEach((suggestion, index) => {
+                    if (suggestion.clickX !== null && suggestion.clickX !== undefined) {
+                        positions.push({
+                            suggestion,
+                            x: suggestion.clickX * 100, // Convert to percentage
+                            y: suggestion.clickY * 100,
+                            row: 0,
+                            col: index,
+                        });
+                    }
+                });
+                return;
+            }
+
+            // Calculate Y position from line data
+            const yPercent = lineData.relativeY * 100;
+
+            // Position dots starting from line number area, going right
+            // If multiple dots, arrange them in rows
+            lineSuggestions.forEach((suggestion, index) => {
+                let xPercent;
+                let row = 0;
+                let col = index;
+
+                if (suggestion.clickX !== null && suggestion.clickX !== undefined) {
+                    // Use click coordinates if available
+                    xPercent = suggestion.clickX * 100;
+                } else {
+                    // Calculate position based on index
+                    // Start from line number area (around 8% from left, after line numbers)
+                    const startX = 8;
+                    const maxX = 95; // Don't go too close to edge
+                    const availableWidth = maxX - startX;
+                    // Calculate how many dots fit per row (based on spacing)
+                    const dotsPerRow = Math.max(1, Math.floor(availableWidth / (DOT_SPACING / 2)));
+                    row = Math.floor(index / dotsPerRow);
+                    col = index % dotsPerRow;
+                    xPercent = startX + col * (DOT_SPACING / 2);
+                }
+
+                // Adjust Y for multiple rows
+                const adjustedY = yPercent + row * (ROW_HEIGHT / 2);
+
+                positions.push({
+                    suggestion,
+                    x: xPercent,
+                    y: adjustedY,
+                    row,
+                    col,
+                });
+            });
+        });
+
+        return positions;
+    }, [suggestionsByLine, textLines, pageNumber]);
+
+    const activeSuggestionId = hoveredSuggestionId || selectedSuggestionId;
+
+    return (
+        <div className="comment-dots-overlay">
+            {dotPositions.map(({ suggestion, x, y }) => {
+                const isActive = activeSuggestionId === suggestion.id;
+                const isSelectedDot = selectedSuggestionId === suggestion.id;
+                return (
+                    <div
+                        key={suggestion.id}
+                        data-suggestion-id={suggestion.id}
+                        className={`comment-dot ${isActive ? 'hovered' : ''} ${isSelectedDot ? 'selected' : ''}`}
+                        style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                        }}
+                        onMouseEnter={() => onHover(suggestion.id)}
+                        onMouseLeave={() => {
+                            // Only clear hover if not selected from table
+                            if (!selectedSuggestionId || selectedSuggestionId !== suggestion.id) {
+                                onHover(null);
+                            }
+                        }}
+                    >
+                        {isActive && (
+                            <div className="comment-tooltip">
+                                <div className="comment-tooltip-user">{suggestion.userEmail}</div>
+                                <div className="comment-tooltip-comment">{suggestion.comment}</div>
+                                {suggestion.status && (
+                                    <div className={`comment-tooltip-status status-${suggestion.status}`}>
+                                        {suggestion.status}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * ClickCommentBox component - Comment box that appears when clicking on PDF
+ * @param {Object} props - Component props
+ * @param {number} props.x - X coordinate in pixels
+ * @param {number} props.y - Y coordinate in pixels
+ * @param {number} props.lineNumber - Pre-filled line number
+ * @param {Function} props.onSubmit - Submit handler
+ * @param {Function} props.onCancel - Cancel handler
+ * @param {boolean} props.submitting - Whether form is submitting
+ * @returns {JSX.Element} ClickCommentBox component
+ */
+function ClickCommentBox({ x, y, lineNumber, onSubmit, onCancel, submitting }) {
+    const [localLineNumber, setLocalLineNumber] = useState(lineNumber.toString());
+
+    useEffect(() => {
+        setLocalLineNumber(lineNumber.toString());
+    }, [lineNumber]);
+
+    return (
+        <div
+            className="click-comment-box"
+            style={{
+                left: `${x}px`,
+                top: `${y}px`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <form onSubmit={(e) => {
+                e.preventDefault();
+                onSubmit(e);
+            }}>
+                <div className="comment-box-header">
+                    <h3>Add Comment</h3>
+                    <button type="button" onClick={onCancel} className="comment-box-close">×</button>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="click-line">Line Number:</label>
+                    <input
+                        type="number"
+                        id="click-line"
+                        name="line"
+                        value={localLineNumber}
+                        onChange={(e) => setLocalLineNumber(e.target.value)}
+                        min="1"
+                        required
+                        disabled={submitting}
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="click-comment">Comment:</label>
+                    <textarea
+                        id="click-comment"
+                        name="comment"
+                        required
+                        disabled={submitting}
+                        rows="3"
+                        placeholder="Enter your comment..."
+                    />
+                </div>
+                <div className="comment-box-actions">
+                    <button type="submit" disabled={submitting} className="submit-button">
+                        {submitting ? 'Submitting...' : 'Add Comment'}
+                    </button>
+                    <button type="button" onClick={onCancel} disabled={submitting} className="cancel-button">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+/**
  * PdfViewerPage component for viewing PDFs and managing suggestions
  * @returns {JSX.Element} PdfViewerPage component
  */
@@ -55,6 +266,10 @@ function PdfViewerPage() {
     const [deletingSuggestions, setDeletingSuggestions] = useState(false); // Track bulk deletion
     const [pageCompleted, setPageCompleted] = useState(false); // Whether current page is marked as done
     const [togglingPageCompletion, setTogglingPageCompletion] = useState(false); // Track page completion toggle
+    const [clickCommentBox, setClickCommentBox] = useState(null); // { x, y, lineNumber } for comment box from click
+    const [hoveredSuggestion, setHoveredSuggestion] = useState(null); // ID of suggestion being hovered
+    const [selectedSuggestionFromTable, setSelectedSuggestionFromTable] = useState(null); // ID of suggestion selected from table
+    const pageContainerRef = useRef(null); // Ref for PDF page container to handle clicks
 
     /**
      * Filters suggestions to show only those for the current page (or all for admins)
@@ -92,6 +307,19 @@ function PdfViewerPage() {
             loadSuggestions(selectedFile);
         }
     }, [selectedFile]);
+
+    /**
+     * Clears selected suggestion when page changes if it's not on the new page
+     */
+    useEffect(() => {
+        if (selectedSuggestionFromTable) {
+            const selectedSuggestion = suggestions.find((s) => s.id === selectedSuggestionFromTable);
+            if (selectedSuggestion && selectedSuggestion.pageNumber !== pageNumber) {
+                setSelectedSuggestionFromTable(null);
+                setHoveredSuggestion(null);
+            }
+        }
+    }, [pageNumber, selectedSuggestionFromTable, suggestions]);
 
     /**
      * Loads page completion status when page or file changes
@@ -853,6 +1081,129 @@ function PdfViewerPage() {
     };
 
     /**
+     * Finds the closest line number to a given Y position
+     * @param {number} clickY - Y coordinate relative to PDF page
+     * @returns {number|null} Closest line number or null if no lines found
+     */
+    const findClosestLineNumber = useCallback((clickY) => {
+        if (!textLines || textLines.length === 0) {
+            return null;
+        }
+
+        // Find the line with the closest relativeY to clickY
+        let closestLine = textLines[0];
+        let minDistance = Math.abs(textLines[0].relativeY - clickY);
+
+        for (const line of textLines) {
+            const distance = Math.abs(line.relativeY - clickY);
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestLine = line;
+            }
+        }
+
+        return closestLine.lineNumber;
+    }, [textLines]);
+
+    /**
+     * Handles click on PDF page to create a comment
+     * @param {React.MouseEvent<HTMLDivElement>} e - Click event
+     */
+    const handlePdfClick = useCallback((e) => {
+        // Don't trigger if clicking on comment box or dots
+        if (e.target.closest('.click-comment-box') || e.target.closest('.comment-dot') || e.target.closest('.comment-dots-overlay')) {
+            return;
+        }
+
+        if (!pdfWrapperRef.current || !selectedFile || !user) {
+            return;
+        }
+
+        // Find the PDF page element
+        const pageElement = pdfWrapperRef.current.querySelector('.react-pdf__Page');
+        if (!pageElement) {
+            return;
+        }
+
+        // Get page canvas to calculate relative positions
+        const canvas = pageElement.querySelector('canvas');
+        if (!canvas) {
+            return;
+        }
+
+        const pageRect = canvas.getBoundingClientRect();
+        const wrapperRect = pdfWrapperRef.current.getBoundingClientRect();
+        const clickX = e.clientX - wrapperRect.left;
+        const clickY = e.clientY - wrapperRect.top;
+
+        // Calculate relative positions within the canvas (0-1 range)
+        const canvasX = e.clientX - pageRect.left;
+        const canvasY = e.clientY - pageRect.top;
+        const relativeX = canvasX / pageRect.width;
+        const relativeY = canvasY / pageRect.height;
+
+        // Find closest line number
+        const closestLine = findClosestLineNumber(relativeY);
+
+        // Show comment box at click position (relative to wrapper)
+        setClickCommentBox({
+            x: clickX,
+            y: clickY,
+            relativeX: relativeX,
+            relativeY: relativeY,
+            lineNumber: closestLine || 1,
+        });
+    }, [selectedFile, user, findClosestLineNumber]);
+
+    /**
+     * Handles submission of comment from click
+     * @param {React.FormEvent<HTMLFormElement>} e - Form submit event
+     */
+    const handleClickCommentSubmit = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!selectedFile || !clickCommentBox) {
+            return;
+        }
+
+        const formData = new FormData(e.currentTarget);
+        const line = parseInt(formData.get('line') || clickCommentBox.lineNumber, 10);
+        const commentText = (formData.get('comment') || '').toString().trim();
+
+        if (!line || line < 1) {
+            setError('Please enter a valid line number');
+            return;
+        }
+
+        if (!commentText) {
+            setError('Please enter a comment');
+            return;
+        }
+
+        setSubmitting(true);
+        setError('');
+
+        const result = await suggestionService.createSuggestion({
+            fileName: selectedFile,
+            page: pageNumber,
+            line: line,
+            comment: commentText,
+            clickX: clickCommentBox.relativeX,
+            clickY: clickCommentBox.relativeY,
+        });
+
+        if (result.success) {
+            // Close comment box and reload suggestions
+            setClickCommentBox(null);
+            await loadSuggestions(selectedFile);
+        } else {
+            setError(result.error || 'Failed to create suggestion');
+        }
+
+        setSubmitting(false);
+    };
+
+    /**
      * Navigates to previous page
      */
     const goToPreviousPage = () => {
@@ -871,6 +1222,30 @@ function PdfViewerPage() {
             return newPage;
         });
     };
+
+    /**
+     * Handles clicking on a suggestion from the table
+     * Highlights the row, shows tooltip on dot, and navigates to correct page if needed
+     * @param {Object} suggestion - The suggestion object
+     */
+    const handleSuggestionClick = useCallback((suggestion) => {
+        // If suggestion is on a different page, navigate to it
+        if (suggestion.pageNumber !== pageNumber) {
+            setPageNumber(suggestion.pageNumber);
+        }
+
+        // Set selected suggestion to highlight row and show tooltip
+        setSelectedSuggestionFromTable(suggestion.id);
+        setHoveredSuggestion(suggestion.id);
+
+        // Scroll to the comment dot after a short delay to allow page to render
+        setTimeout(() => {
+            const dotElement = document.querySelector(`[data-suggestion-id="${suggestion.id}"]`);
+            if (dotElement) {
+                dotElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+        }, 300);
+    }, [pageNumber]);
 
     /**
      * Memoized PDF.js options to prevent unnecessary reloads
@@ -961,7 +1336,7 @@ function PdfViewerPage() {
                         </div>
 
                         <div className="pdf-display">
-                            <div className="pdf-wrapper" ref={pdfWrapperRef}>
+                            <div className="pdf-wrapper" ref={pdfWrapperRef} onClick={handlePdfClick}>
                                 {pdfUrl && (
                                     <>
                                         <Document
@@ -1045,6 +1420,28 @@ function PdfViewerPage() {
                                             );
                                         })}
                                     </div>
+                                )}
+                                {/* Comment Dots Overlay */}
+                                {selectedFile && (
+                                    <CommentDotsOverlay
+                                        suggestions={getCurrentPageSuggestions()}
+                                        textLines={textLines}
+                                        pageNumber={pageNumber}
+                                        onHover={setHoveredSuggestion}
+                                        hoveredSuggestionId={hoveredSuggestion || selectedSuggestionFromTable}
+                                        selectedSuggestionId={selectedSuggestionFromTable}
+                                    />
+                                )}
+                                {/* Click Comment Box */}
+                                {clickCommentBox && (
+                                    <ClickCommentBox
+                                        x={clickCommentBox.x}
+                                        y={clickCommentBox.y}
+                                        lineNumber={clickCommentBox.lineNumber}
+                                        onSubmit={handleClickCommentSubmit}
+                                        onCancel={() => setClickCommentBox(null)}
+                                        submitting={submitting}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -1186,9 +1583,14 @@ function PdfViewerPage() {
                                             return a.lineNumber - b.lineNumber;
                                         })
                                         .map((suggestion) => (
-                                            <tr key={suggestion.id}>
+                                            <tr
+                                                key={suggestion.id}
+                                                className={selectedSuggestionFromTable === suggestion.id ? 'selected-suggestion-row' : ''}
+                                                onClick={() => handleSuggestionClick(suggestion)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
                                                 {user && user.role === 'admin' && (
-                                                    <td data-label="Select">
+                                                    <td data-label="Select" onClick={(e) => e.stopPropagation()}>
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedSuggestions.has(suggestion.id)}
@@ -1203,7 +1605,7 @@ function PdfViewerPage() {
                                                 <td data-label="Comment">{suggestion.comment}</td>
                                                 <td data-label="User">{suggestion.userEmail}</td>
                                                 {user && user.role === 'admin' && (
-                                                    <td data-label="Status">
+                                                    <td data-label="Status" onClick={(e) => e.stopPropagation()}>
                                                         <select
                                                             value={suggestion.status || 'pending'}
                                                             onChange={(e) => handleStatusChange(suggestion.id, e.target.value)}
